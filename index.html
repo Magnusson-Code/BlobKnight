@@ -82,13 +82,16 @@ function easeOut(t) { return 1 - Math.pow(1 - t, 2); }
 function easeIn(t)  { return t * t; }
 
 // ── AUDIO (Web Audio API – synthesised chiptune sfx) ─────────────────────────
+// Shared AudioContext – both SFX and music use the same instance
+let _ac = null;
+function getAC() {
+  if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ac.state === 'suspended') _ac.resume();
+  return _ac;
+}
+
 const snd = (() => {
-  let ac = null;
-  function ctx() {
-    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
-    if (ac.state === 'suspended') ac.resume();
-    return ac;
-  }
+  function ctx() { return getAC(); }
   function tone(freq, endFreq, dur, vol = 0.28, wave = 'square') {
     try {
       const c = ctx(), o = c.createOscillator(), g = c.createGain();
@@ -129,6 +132,142 @@ const snd = (() => {
     heart()       { [262,330,392,523].forEach((f,i) => later(() => tone(f, f, 0.11, 0.22), i*75)); },
     gift()        { [330,440,554,659,880].forEach((f,i) => later(() => tone(f, f*1.04, 0.09, 0.26), i*55)); },
     iceActivate() { [1000,1300,800,1600,600,2000].forEach((f,i) => later(() => tone(f, f*1.6, 0.11, 0.16, 'sine'), i*45)); },
+  };
+})();
+
+// ── BACKGROUND MUSIC ─────────────────────────────────────────────────────────
+const bgm = (() => {
+  // Frequencies used in the tracks
+  const F = {
+    C3:131,D3:147,E3:165,F3:175,G3:196,A3:220,B3:247,
+    C4:262,D4:294,E4:330,F4:349,G4:392,A4:440,B4:494,
+    C5:523,D5:587,E5:659,F5:698,G5:784,A5:880,B5:988,
+    Cs5:554,Fs5:740,Gs5:831,C6:1047,D6:1175,
+    Fs3:185,Fs4:370,
+  };
+  const R = 0;
+
+  // Phase 1 – Green Fields (A)
+  const T1 = {
+    bpm:130,
+    mel:[[F.C5,.5],[F.E5,.5],[F.G5,.5],[F.C6,.5],[F.B5,.5],[F.G5,.5],[F.E5,.25],[F.D5,.25],
+         [F.F5,.5],[F.A5,.5],[F.C6,.5],[F.A5,.5],[F.G5,.5],[F.E5,.25],[F.D5,.25],[F.C5,.5],
+         [F.E5,.5],[F.G5,.5],[F.E5,.25],[F.D5,.25],[F.C5,.5],
+         [F.G4,.25],[F.A4,.25],[F.B4,.25],[F.C5,.25],[F.D5,.5],[R,.5],
+         [F.C5,.25],[F.D5,.25],[F.E5,.25],[F.F5,.25],[F.G5,.5],[F.E5,.5],
+         [F.D5,.5],[F.C5,.75],[R,.25]],
+    bas:[[F.C3,1],[F.G3,1],[F.F3,1],[F.G3,1],[F.C3,1],[F.G3,1],[F.F3,1],[F.C3,1]],
+    per:[1,0,.4,0,1,0,.4,0,1,0,.4,0,1,0,.4,0], pb:.25,
+  };
+
+  // Phase 2 – Shadow Path (C)
+  const T2 = {
+    bpm:110,
+    mel:[[F.A5,.75],[F.G5,.25],[F.E5,.5],[F.C5,.5],
+         [F.D5,.5],[F.E5,.5],[F.A4,1],
+         [F.F5,.5],[F.E5,.25],[F.D5,.25],[F.C5,.5],[F.E5,.5],
+         [F.A4,.75],[R,.25],[F.B4,.5],[F.C5,.5],
+         [F.A5,.5],[F.Gs5,.5],[F.A5,.5],[F.E5,.5],
+         [F.G5,.5],[F.F5,.5],[F.E5,.5],[F.D5,.5],
+         [F.C5,.5],[F.D5,.5],[F.E5,.5],[F.F5,.5],
+         [F.E5,1],[R,1]],
+    bas:[[F.A3,1],[F.E3,1],[F.F3,1],[F.E3,1],[F.A3,1],[F.G3,1],[F.F3,1],[F.E3,1]],
+    per:[1,0,0,0,0,0,.3,0,0,0,1,0,0,0,.3,0], pb:.25,
+  };
+
+  // Phase 3 – Speed Run (D)
+  const T3 = {
+    bpm:170,
+    mel:[[F.D5,.25],[F.Fs5,.25],[F.A5,.25],[F.D6,.25],[F.C6,.25],[F.A5,.25],[F.Fs5,.25],[F.E5,.25],
+         [F.G5,.25],[F.B5,.25],[F.D6,.25],[F.B5,.25],[F.A5,.25],[F.G5,.25],[F.Fs5,.25],[F.D5,.25],
+         [F.E5,.25],[F.Fs5,.25],[F.G5,.25],[F.A5,.25],[F.B5,.25],[F.A5,.25],[F.G5,.25],[F.Fs5,.25],
+         [F.A5,.25],[F.Fs5,.25],[F.D5,.25],[F.E5,.25],[F.Fs5,.5],[F.D5,.25],[R,.25],
+         [F.A5,.25],[F.G5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.E5,.25],[F.Fs5,.25],[F.G5,.25],
+         [F.A5,.25],[F.B5,.25],[F.A5,.25],[F.G5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.Cs5,.25],
+         [F.D5,.25],[F.Fs5,.25],[F.A5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.E5,.25],[F.Fs5,.25],
+         [F.G5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.Fs5,.5],[F.D5,.5]],
+    bas:[[F.D3,.5],[F.A3,.5],[F.D3,.5],[F.A3,.5],[F.G3,.5],[F.D3,.5],[F.G3,.5],[F.A3,.5],
+         [F.D3,.5],[F.A3,.5],[F.Fs3,.5],[F.A3,.5],[F.G3,.5],[F.D3,.5],[F.A3,.5],[F.D3,.5]],
+    per:[1,0,.5,0,1,0,.5,0,1,0,.5,0,1,.3,.5,.3], pb:.25,
+  };
+
+  const TRACKS = { 1:T1, 2:T2, 3:T3 };
+  let playing = false, currentPhase = 0, loopTimeout = null, loopDur = 0, loopStart = 0;
+  let gen = 0; // incremented on every track switch — old loop callbacks self-cancel
+
+  function note(freq, dur, time) {
+    if (!freq || freq < 20) return;
+    try {
+      const c = getAC(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'square'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.023, time);
+      g.gain.setValueAtTime(0.023, time + dur * 0.78);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.96);
+      o.start(time); o.stop(time + dur);
+    } catch(e) {}
+  }
+  function bass(freq, dur, time) {
+    if (!freq || freq < 20) return;
+    try {
+      const c = getAC(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'triangle'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.017, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.9);
+      o.start(time); o.stop(time + dur);
+    } catch(e) {}
+  }
+  function perc(vol, time, dur) {
+    if (vol < 0.05) return;
+    try {
+      const c = getAC(), n = Math.ceil(c.sampleRate * dur);
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(), g = c.createGain();
+      src.buffer = buf; src.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(vol * 0.019, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.6);
+      src.start(time); src.stop(time + dur);
+    } catch(e) {}
+  }
+
+  function scheduleLoop(tr, startAt, myGen) {
+    if (!playing || myGen !== gen) return; // stale generation — stop silently
+    const beat = 60 / tr.bpm;
+    let t = startAt;
+    for (const [f, b] of tr.mel) { note(f, b * beat * 0.88, t); t += b * beat; }
+    t = startAt;
+    for (const [f, b] of tr.bas) { bass(f, b * beat * 0.85, t); t += b * beat; }
+    t = startAt;
+    for (const v of tr.per) { perc(v, t, tr.pb * beat * 0.5); t += tr.pb * beat; }
+    const next = startAt + loopDur;
+    loopTimeout = setTimeout(() => scheduleLoop(tr, next, myGen),
+      Math.max(0, (next - getAC().currentTime - 0.05) * 1000));
+  }
+
+  function startTrack(phase) {
+    gen++;                          // invalidates any running loop callbacks
+    clearTimeout(loopTimeout);
+    playing = false;
+    const tr = TRACKS[phase]; if (!tr) return;
+    const beat = 60 / tr.bpm;
+    loopDur = Math.max(
+      tr.mel.reduce((s,[,b]) => s+b, 0) * beat,
+      tr.bas.reduce((s,[,b]) => s+b, 0) * beat,
+      tr.per.length * tr.pb * beat
+    );
+    playing = true; currentPhase = phase;
+    loopStart = getAC().currentTime + 0.05;
+    scheduleLoop(tr, loopStart, gen);
+  }
+
+  return {
+    update(phase) {
+      if (phase !== currentPhase) startTrack(phase);
+    },
+    stop() { gen++; clearTimeout(loopTimeout); playing = false; currentPhase = 0; },
   };
 })();
 
@@ -1346,6 +1485,7 @@ function rectsOverlap(x1,y1,w1,h1, x2,y2,w2,h2) {
 
 function endGame() {
   gs.state = 'gameover';
+  bgm.stop();
   if (gs.score > highScore) {
     highScore = gs.score;
     localStorage.setItem('blobKnightHS', highScore);
@@ -1379,6 +1519,7 @@ function update() {
   gs.score = Math.max(gs.score, (gs.distance / 12) | 0);
 
   updateDifficulty();
+  bgm.update(gs.phase);
   updateBackground();
   updateBlob();
   updateFireballs();
