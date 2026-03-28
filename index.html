@@ -2,14 +2,40 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Blob Knight</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#111; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:100vh; font-family:Arial,sans-serif; }
-  canvas { display:block; border:2px solid #444; }
-  #controls { color:#888; font-size:13px; margin-top:8px; text-align:center; }
+  body {
+    background:#111;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    width:100vw; height:100dvh; overflow:hidden;
+    font-family:Arial,sans-serif;
+  }
+  canvas {
+    display:block;
+    border:2px solid #444;
+    /* Scale to fit screen while keeping 800×420 aspect ratio */
+    width:  min(100vw, calc(var(--ch) * 800 / 420));
+    height: auto;
+    max-height: 100dvh;
+  }
+  #controls { color:#888; font-size:13px; margin-top:6px; text-align:center; flex-shrink:0; }
 </style>
+<script>
+  // Set --ch = available height (minus controls bar when visible)
+  function setCanvasHeight() {
+    const ctrl = document.getElementById('controls');
+    const ctrlH = ctrl && ctrl.offsetHeight ? ctrl.offsetHeight + 6 : 0;
+    document.documentElement.style.setProperty('--ch', (window.innerHeight - ctrlH) + 'px');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    setCanvasHeight();
+    window.addEventListener('resize', setCanvasHeight);
+  });
+</script>
 </head>
 <body>
 <canvas id="c"></canvas>
