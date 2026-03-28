@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blob Knight</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#111; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:100vh; font-family:Arial,sans-serif; }
+  canvas { display:block; border:2px solid #444; }
+  #controls { color:#888; font-size:13px; margin-top:8px; text-align:center; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="controls">Mellanslag: Svärd &nbsp;|&nbsp; Shift: Eldboll &nbsp;|&nbsp; Mobil: Tryck på skärmen / mätaren</div>
+<script>
+'use strict';
+
+// ── CANVAS ──────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+canvas.width  = 800;
+canvas.height = 420;
+
+// ── PIXEL ART HELPERS ────────────────────────────────────────────────────────
+const P = 4; // 1 "pixel" = 4×4 canvas pixels
+
+// Draw one P×P pixel at grid offset (gx,gy) from world position (wx,wy)
+function px(wx, wy, gx, gy, col) {
+  ctx.fillStyle = col;
+  ctx.fillRect(wx + gx*P, wy + gy*P, P, P);
+}
+
+// Fill a horizontal run of pixels at the same gy
+function prow(wx, wy, gy, x0, x1, col) {
+  ctx.fillStyle = col;
+  ctx.fillRect(wx + x0*P, wy + gy*P, (x1 - x0 + 1)*P, P);
+}
+
+// Draw a sprite defined as array of [gy, x0, x1, color]
+function drawRows(wx, wy, rows) {
+  for (const [gy, x0, x1, col] of rows) prow(wx, wy, gy, x0, x1, col);
+}
+
+function easeOut(t) { return 1 - Math.pow(1 - t, 2); }
+function easeIn(t)  { return t * t; }
+
+// ── INPUT ────────────────────────────────────────────────────────────────────
+const keys = {};
+let spaceJustPressed = false;
+let shiftJustPressed = false;
+
+document.addEventListener('keydown', e => {
+  if (!keys[e.code]) {
+    if (e.code === 'Space')                           { spaceJustPressed = true; e.preventDefault(); }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { shiftJustPressed = true; e.preventDefault(); }
+    if (e.code === 'Enter') {
+      if (gs.state === 'gameover') restartGame();
+      e.preventDefault();
+    }
+  }
+  keys[e.code] = true;
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+function canvasCoords(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return [
+    (clientX - r.left) * (canvas.width  / r.width),
+    (clientY - r.top)  * (canvas.height / r.height),
+  ];
+}
+
+function handleTap(mx, my) {
+  if (gs.state === 'gameover') {
+    const ph = 260, panelY = canvas.height/2 - ph/2;
+    const bx = canvas.width/2 - 100, by = panelY + 195;
+    if (mx >= bx && mx <= bx+200 && my >= by && my <= by+44) restartGame();
+    return;
+  }
+  // Flame bar touch region (generous tap target)
+  // drawFlameBar(10, canvas.height-30, ...) → border at x=8, w=84, plus flame tip above
+  if (mx >= 0 && mx <= 110 && my >= canvas.height - 64) {
+    shiftJustPressed = true;
+  } else {
+    spaceJustPressed = true;
+  }
+}
+
+canvas.addEventListener('click', e => {
+  const [mx, my] = canvasCoords(e.clientX, e.clientY);
+  handleTap(mx, my);
+});
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const [mx, my] = canvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+  handleTap(mx, my);
+}, { passive: false });
+
+// ── GAME STATE ───────────────────────────────────────────────────────────────
+let gs = {};   // populated by resetState()
+
+function resetState() {
+  gs = {
+    state:       'playing',
+    frame:       0,
+    distance:    0,
+    score:       0,
+    phase:       1,
+    worldSpeed:  1.4,
+    spawnTimer:  0,
+    spawnRate:   120,
+    bgScroll:    0,
+    mgScroll:    0,
+    fgScroll:    0,
+    enemies:        [],
+    fireballs:      [],
+    particles:      [],
+    heartAnims:          [],
+    fireballExplosions:  [],
+    nextHeartScore: 500,   // spawn blue goblin at every 500 pts
+    startTime:      performance.now(),
+  };
+}
+
+let highScore = parseInt(localStorage.getItem('blobKnightHS') || '0');
+
+// ── BLOB ─────────────────────────────────────────────────────────────────────
+let blob = {};
+
+function resetBlob() {
+  blob = {
+    x: 140, y: 310,
+    lives: 3, maxLives: 3,
+    invincible: false, invTimer: 0,
+    visible: true, blinkT: 0,
+    bobOff: 0, bobDir: 1,
+    attacking: false, atkTimer: 0, atkAngle: 0,
+    specialCD: 0, specialMax: 300,   // 5 s @ 60 fps
+  };
+}
+
+function updateBlob() {
+  // Bob
+  blob.bobOff += 0.08 * blob.bobDir;
+  if (Math.abs(blob.bobOff) > 4) blob.bobDir *= -1;
+
+  // Normal attack
+  if (spaceJustPressed && !blob.attacking) {
+    blob.attacking = true;
+    blob.atkTimer  = 0;
+    blob.atkAngle  = -0.5;
+    spaceJustPressed = false;
+  }
+  if (blob.attacking) {
+    blob.atkTimer++;
+    blob.atkAngle += 0.18;
+    if (blob.atkTimer === 8) checkSwordHit();
+    if (blob.atkTimer >= 16) { blob.attacking = false; blob.atkTimer = 0; }
+  }
+  spaceJustPressed = false;
+
+  // Special
+  if (blob.specialCD > 0) blob.specialCD--;
+  if (shiftJustPressed && blob.specialCD === 0) {
+    launchFireball();
+    blob.specialCD = blob.specialMax;
+    shiftJustPressed = false;
+  }
+  shiftJustPressed = false;
+
+  // Invincibility blink
+  if (blob.invincible) {
+    blob.invTimer--;
+    blob.blinkT++;
+    blob.visible = Math.floor(blob.blinkT / 5) % 2 === 0;
+    if (blob.invTimer <= 0) { blob.invincible = false; blob.visible = true; }
+  }
+}
+
+function blobHurt() {
+  if (blob.invincible) return;
+  blob.lives--;
+  blob.invincible = true;
+  blob.invTimer   = 90;
+  blob.blinkT     = 0;
+  spawnParticles(blob.x, blob.y, '#ff4444', 10);
+  if (blob.lives <= 0) endGame();
+}
+
+// ── SWORD HIT CHECK ──────────────────────────────────────────────────────────
+function checkSwordHit() {
+  const sx = blob.x + 22, sy = blob.y - 10 + blob.bobOff;
+  for (const e of gs.enemies) {
+    if (e.dead) continue;
+    if (Math.abs(e.x - sx) < 95 && Math.abs(e.y - sy) < 80) {
+      damageEnemy(e, 1);
+    }
+  }
+}
+
+// ── FIREBALL ─────────────────────────────────────────────────────────────────
+function launchFireball() {
+  gs.fireballs.push({ x: blob.x+28, y: blob.y-10+blob.bobOff, vx:8, t:0, active:true });
+}
+
+function updateFireballs() {
+  for (let i = gs.fireballs.length-1; i >= 0; i--) {
+    const fb = gs.fireballs[i];
+    fb.x += fb.vx;
+    fb.t++;
+    // Check enemies
+    for (const e of gs.enemies) {
+      if (e.dead) continue;
+      if (rectsOverlap(fb.x-14, fb.y-14, 28, 28,
+                       e.x - e.hw, e.y - e.hh, e.hw*2, e.hh*2)) {
+        damageEnemy(e, 3, 'fireball');
+        spawnParticles(fb.x, fb.y, '#ff8800', 12);
+        fb.active = false;
+        break;
+      }
+    }
+    if (fb.x > canvas.width+60 || !fb.active) gs.fireballs.splice(i, 1);
+  }
+}
+
+function drawFireballs() {
+  for (const fb of gs.fireballs) {
+    const pulse = Math.sin(fb.t * 0.35) * 3;
+    // Trail
+    for (let t = 4; t >= 1; t--) {
+      ctx.globalAlpha = 0.08 * t;
+      ctx.fillStyle = '#ff5500';
+      ctx.beginPath();
+      ctx.arc(fb.x - t*9, fb.y + Math.sin(fb.t*0.2+t)*3, 8-t, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Glow
+    const gr = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, 18+pulse);
+    gr.addColorStop(0,   'rgba(255,220,60,0.95)');
+    gr.addColorStop(0.45,'rgba(255,100,0,0.6)');
+    gr.addColorStop(1,   'rgba(255,40,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(fb.x, fb.y, 18+pulse, 0, Math.PI*2); ctx.fill();
+    // Core
+    ctx.fillStyle = '#fff8aa';
+    ctx.beginPath(); ctx.arc(fb.x, fb.y, 7, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ── ENEMIES ───────────────────────────────────────────────────────────────────
+function spawnEnemy() {
+  // Blue goblin milestone: one per 500 pts, at most one active at a time
+  const blueActive = gs.enemies.some(e => e.isBlue && !e.dead);
+  if (!blueActive && gs.score >= gs.nextHeartScore) {
+    gs.nextHeartScore += 500;
+    gs.enemies.push({
+      type:'goblin', isBlue:true,
+      x:canvas.width+40, y:308,
+      hw:18, hh:22,
+      hp:1, maxHp:1,
+      speed: 2.2 + Math.random()*0.8,
+      dead:false, deathT:0, ft:0,
+    });
+    return;
+  }
+
+  const spawnGiant = gs.phase >= 2 && Math.random() < 0.25;
+  if (spawnGiant) {
+    gs.enemies.push({
+      type:'giant', x:canvas.width+70, y:308,
+      hw:35, hh:40,
+      hp:3, maxHp:3,
+      speed: 1.2 + Math.random()*0.8 + (gs.phase-1)*0.3,
+      dead:false, deathT:0, ft:0,
+    });
+  } else {
+    gs.enemies.push({
+      type:'goblin', isBlue:false,
+      x:canvas.width+40, y:308,
+      hw:18, hh:22,
+      hp:1, maxHp:1,
+      speed: 2.5 + Math.random()*1.5 + (gs.phase-1)*0.5,
+      dead:false, deathT:0, ft:0,
+    });
+  }
+}
+
+function damageEnemy(e, dmg, source) {
+  if (e.dead) return;
+  e.hp -= dmg;
+  spawnParticles(e.x, e.y - e.hh, e.isBlue ? '#88ccff' : '#ffff44', 7);
+  if (e.hp <= 0) {
+    e.dead   = true;
+    e.deathT = source === 'fireball' ? 6 : 28;
+    if (source === 'fireball') spawnFireballExplosion(e.x, e.y, e.type);
+    if (e.isBlue) {
+      // Extra life + floating heart animation
+      const targetX = 26 + blob.lives * 36;
+      const targetY = 24;
+      blob.lives++;
+      blob.maxLives = Math.max(blob.maxLives, blob.lives);
+      spawnParticles(e.x, e.y - e.hh, '#ff88aa', 14);
+      gs.heartAnims.push({
+        x: e.x, y: e.y - e.hh,
+        tx: targetX, ty: targetY,
+        t: 0, maxT: 70,
+      });
+    } else {
+      gs.score += e.type === 'goblin' ? 10 : 30;
+      if (e.type === 'giant' && gs.phase === 1) gs.phase = 2;
+    }
+  }
+}
+
+function updateEnemies() {
+  for (let i = gs.enemies.length-1; i >= 0; i--) {
+    const e = gs.enemies[i];
+    e.ft++;
+    if (e.dead) {
+      if (--e.deathT <= 0) gs.enemies.splice(i, 1);
+      continue;
+    }
+    e.x -= e.speed;
+    e.wobble += 0.13 * e.wobDir;
+    if (Math.abs(e.wobble) > 0.1) e.wobDir *= -1;
+
+    // Collision with blob
+    if (!blob.invincible) {
+      if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                       e.x-e.hw, e.y-e.hh, e.hw*2, e.hh*2)) {
+        blobHurt();
+        e.dead  = true;
+        e.deathT = 18;
+      }
+    }
+    if (e.x < -120) gs.enemies.splice(i, 1);
+  }
+}
+
+// ── PARTICLES ─────────────────────────────────────────────────────────────────
+function spawnParticles(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI*2/n)*i + Math.random()*0.6;
+    gs.particles.push({
+      x, y,
+      vx: Math.cos(a) * (2+Math.random()*3.5),
+      vy: Math.sin(a) * (2+Math.random()*3.5) - 1.5,
+      life: 30 + Math.random()*15 | 0,
+      maxLife: 45,
+      color,
+      size: 2 + Math.random()*3,
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = gs.particles.length-1; i >= 0; i--) {
+    const p = gs.particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life--;
+    if (p.life <= 0) gs.particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of gs.particles) {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle   = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (p.life/p.maxLife), 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ── FIREBALL EXPLOSIONS (Style B – Megaexplosion) ────────────────────────────
+function spawnFireballExplosion(x, y, type) {
+  const debris = [];
+  const n = type === 'giant' ? 32 : 22;
+  for (let i = 0; i < n; i++) {
+    debris.push({
+      angle: Math.random() * Math.PI * 2,
+      speed: Math.random() * 3 + 1.5,
+      size:  Math.floor(Math.random() * 5) + 3,
+      col:   ['#ff8800','#ff4400','#cc2200','#888888','#555555'][Math.floor(Math.random() * 5)],
+      delay: Math.random() * 0.1,
+    });
+  }
+  const radius = type === 'giant' ? 64 : 48;
+  gs.fireballExplosions.push({ x, y, t: 0, maxT: 90, radius, debris });
+}
+
+function updateFireballExplosions() {
+  for (let i = gs.fireballExplosions.length - 1; i >= 0; i--) {
+    gs.fireballExplosions[i].t++;
+    if (gs.fireballExplosions[i].t >= gs.fireballExplosions[i].maxT)
+      gs.fireballExplosions.splice(i, 1);
+  }
+}
+
+function drawFireballExplosions() {
+  for (const ex of gs.fireballExplosions) {
+    const p  = ex.t / ex.maxT;
+    const cx = ex.x;
+    const cy = ex.y - 28;
+    const R  = ex.radius;
+
+    // Debris pixels
+    const dp = Math.max(0, (p - 0.05) / 0.95);
+    for (const d of ex.debris) {
+      if (dp < d.delay) continue;
+      const lp = Math.min((dp - d.delay) / 0.7, 1);
+      const dx = cx + Math.cos(d.angle) * d.speed * lp * 55;
+      const dy = cy + Math.sin(d.angle) * d.speed * lp * 40 + easeIn(lp) * 90;
+      if (dy > GROUND_Y + 4) continue;
+      ctx.globalAlpha = Math.max(0, 1 - lp * 0.85);
+      ctx.fillStyle = d.col;
+      ctx.fillRect(dx, dy, d.size, d.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ── BACKGROUND (Style D – pastel chibi) ──────────────────────────────────────
+function updateBackground() {
+  gs.bgScroll += gs.worldSpeed * 0.22;
+  gs.mgScroll += gs.worldSpeed * 0.50;
+  gs.fgScroll += gs.worldSpeed;
+}
+
+const GROUND_Y = 345;
+
+// Sky palettes per phase
+const SKY = [
+  ['#aaddff','#cceeff','#bbffee'],  // phase 1: pastel blue→teal
+  ['#ffccaa','#ffaabb','#ffd0cc'],  // phase 2: pastel peach→pink sunset
+  ['#aabbdd','#8899cc','#6677aa'],  // phase 3: periwinkle night
+];
+const GROUND_COL  = ['#99dd66','#ddbb77','#667799'];
+const GROUND_DARK = ['#77bb44','#bb9944','#445566'];
+
+function drawBackground() {
+  const ph = Math.min(gs.phase, 3) - 1;
+  const [s0, s1, s2] = SKY[ph];
+
+  // Sky — two-tone flat pastel blocks (pixel art feel, no smooth gradient)
+  ctx.fillStyle = s0; ctx.fillRect(0, 0,           canvas.width, GROUND_Y * 0.45 | 0);
+  ctx.fillStyle = s1; ctx.fillRect(0, GROUND_Y*0.45|0, canvas.width, GROUND_Y * 0.35 | 0);
+  ctx.fillStyle = s2; ctx.fillRect(0, GROUND_Y*0.80|0, canvas.width, GROUND_Y * 0.22 | 0);
+
+  // Clouds (phase 1 & 2)
+  if (gs.phase < 3) drawPixelClouds(gs.bgScroll * 0.18);
+  // Stars (phase 3)
+  if (gs.phase >= 3) drawStars(gs.bgScroll * 0.06);
+
+  // BG hills — blocky pixel-art humps
+  drawPixelHills(gs.bgScroll * 0.22, GROUND_Y - 60, ph);
+
+  // Midground trees / cacti / mushrooms
+  if (gs.phase === 1) drawPixelTrees(gs.mgScroll, GROUND_Y);
+  if (gs.phase === 2) drawPixelCacti(gs.mgScroll, GROUND_Y);
+  if (gs.phase >= 3)  drawPixelMushrooms(gs.mgScroll, GROUND_Y);
+
+  // Ground
+  ctx.fillStyle = GROUND_COL[ph];
+  ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+  // Ground edge — 2 darker pixel rows
+  ctx.fillStyle = GROUND_DARK[ph];
+  ctx.fillRect(0, GROUND_Y,   canvas.width, P);
+  ctx.fillStyle = GROUND_COL[ph];
+  ctx.fillRect(0, GROUND_Y+P, canvas.width, P);
+
+  // Foreground flowers / details
+  drawFgFlowers(gs.fgScroll, GROUND_Y, gs.phase);
+}
+
+function drawPixelClouds(scroll) {
+  const spacing = 220;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*6)) + spacing*6) % (spacing*6) | 0;
+    const y = 28 + (i % 3) * 18;
+    // Cloud: pixel block clusters (each "pixel" = 8px wide)
+    const CP = 8;
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    for (const [cx,cy,cw,ch] of [
+      [x-16,y,   40, CP],  // main body
+      [x-8, y-CP,24, CP],  // top bump
+      [x+8, y-CP,16, CP],  // right bump
+      [x-24,y+CP,16, CP],  // bottom-left
+      [x+16,y+CP,16, CP],  // bottom-right
+    ]) ctx.fillRect(cx, cy, cw, ch);
+  }
+}
+
+function drawStars(scroll) {
+  // Static-ish stars via deterministic positions
+  for (let i = 0; i < 40; i++) {
+    const x = ((i * 193 + 47) % canvas.width);
+    const y = (i * 77 + 11) % (GROUND_Y * 0.75) | 0;
+    const bright = (i % 3 === 0) ? '#ffffff' : '#bbccdd';
+    ctx.fillStyle = bright;
+    ctx.fillRect(x, y, (i%4 < 2)?2:4, (i%4 < 2)?2:4);
+  }
+}
+
+function drawPixelHills(scroll, baseY, ph) {
+  const hillCol = ['#88cc66','#ddaa66','#8899bb'][ph];
+  const spacing = 200;
+  ctx.fillStyle = hillCol;
+  ctx.globalAlpha = 0.55;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*7)) + spacing*7) % (spacing*7) | 0;
+    // Stepped pixel hill
+    const w = 90, h = 50;
+    for (let step = 0; step < 5; step++) {
+      const sw = w - step*14, sh = P;
+      ctx.fillRect(x - sw/2, baseY + step*P, sw, sh);
+    }
+    ctx.fillRect(x - 20, baseY + 5*P, 40, (h - 5*P));
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPixelTrees(scroll, groundY) {
+  const spacing = 180;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*8)) + spacing*8) % (spacing*8) | 0;
+    // Pixel trunk
+    ctx.fillStyle = '#886644';
+    ctx.fillRect(x-P, groundY-12*P, 2*P, 12*P);
+    // Pixel canopy — stepped triangular layers
+    const layers = [[0,6,P*5,'#66cc55'],[P,4,P*8,'#55bb44'],[P*2,3,P*7,'#44aa33'],[P*3,2,P*6,'#77dd66']];
+    for (const [dy, hw, h, c] of layers) {
+      ctx.fillStyle = c;
+      ctx.fillRect(x - hw*P/2, groundY - 14*P - dy*2 - h, hw*P, h);
+    }
+  }
+}
+
+function drawPixelCacti(scroll, groundY) {
+  const spacing = 190;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*7)) + spacing*7) % (spacing*7) | 0;
+    ctx.fillStyle = '#88bb55';
+    // Main trunk
+    ctx.fillRect(x-P, groundY-14*P, 2*P, 14*P);
+    // Left arm
+    ctx.fillRect(x-4*P, groundY-10*P, P, 4*P);
+    ctx.fillRect(x-4*P, groundY-14*P, 3*P, P);
+    // Right arm
+    ctx.fillRect(x+3*P, groundY-8*P, P, 4*P);
+    ctx.fillRect(x+2*P, groundY-12*P, 3*P, P);
+    // Outline
+    ctx.fillStyle = '#557733';
+    ctx.fillRect(x-P-P, groundY-14*P, P, 14*P);
+  }
+}
+
+function drawPixelMushrooms(scroll, groundY) {
+  const spacing = 170;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*7)) + spacing*7) % (spacing*7) | 0;
+    // Stem
+    ctx.fillStyle = '#ccbbaa'; ctx.fillRect(x-P, groundY-6*P, 2*P, 6*P);
+    // Cap
+    ctx.fillStyle = '#cc4466';
+    ctx.fillRect(x-4*P, groundY-10*P, 8*P, P);
+    ctx.fillRect(x-5*P, groundY-11*P, 10*P, P);
+    ctx.fillRect(x-5*P, groundY-12*P, 10*P, P);
+    ctx.fillRect(x-4*P, groundY-13*P, 8*P, P);
+    ctx.fillRect(x-3*P, groundY-14*P, 6*P, P);
+    // Spots
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x-2*P, groundY-12*P, P, P);
+    ctx.fillRect(x+2*P, groundY-11*P, P, P);
+  }
+}
+
+function drawFgFlowers(scroll, groundY, phase) {
+  const spacing = 100;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*9)) + spacing*9) % (spacing*9) | 0;
+    if (phase === 1) {
+      // Pink flower
+      ctx.fillStyle = '#ff99cc';
+      ctx.fillRect(x-P, groundY-3*P, P, P); ctx.fillRect(x+P, groundY-3*P, P, P);
+      ctx.fillRect(x, groundY-4*P, P, P);   ctx.fillRect(x, groundY-2*P, P, P);
+      ctx.fillStyle = '#ffee44';
+      ctx.fillRect(x, groundY-3*P, P, P);
+      ctx.fillStyle = '#55aa33';
+      ctx.fillRect(x, groundY-2*P, P, 2*P);
+    } else if (phase === 2) {
+      // Small cactus/shrub
+      ctx.fillStyle = '#aacc55';
+      ctx.fillRect(x, groundY-4*P, P, 4*P);
+      ctx.fillRect(x-P, groundY-3*P, P, P);
+      ctx.fillRect(x+P, groundY-2*P, P, P);
+    } else {
+      // Glowing mushroom stub
+      ctx.fillStyle = '#cc4488';
+      ctx.fillRect(x-P, groundY-3*P, 3*P, P);
+      ctx.fillRect(x-P, groundY-4*P, 3*P, P);
+      ctx.fillStyle = '#ff88cc'; ctx.fillRect(x, groundY-4*P, P, P); // glow top
+      ctx.fillStyle = '#ccbbaa'; ctx.fillRect(x, groundY-2*P, P, 2*P);
+    }
+  }
+}
+
+// ── DRAW BLOB (pixel art, SNES/GBA style) ────────────────────────────────────
+function drawBlob() {
+  if (!blob.visible) return;
+  const wx = blob.x - 7*P, wy = blob.y + blob.bobOff - 6*P; // top-left of sprite grid
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(wx + 2*P, wy + 11*P, 10*P, 2*P);
+
+  const O = '#1a3a1a'; // outline
+  const G = '#55bb55'; // body green
+  const L = '#aaee88'; // highlight
+  const D = '#2a7a2a'; // shadow
+
+  // Body rows: [gy, x0, x1] — sprite is 15 wide × 10 tall, squished (wider than tall)
+  const body = [
+    [-1, 4, 10],   // top cap (7 wide)
+    [ 0, 2, 12],   // widening
+    [ 1, 1, 13],   // widest (13 wide)
+    [ 2, 1, 13],
+    [ 3, 1, 13],
+    [ 4, 1, 13],   // eye rows
+    [ 5, 1, 13],
+    [ 6, 1, 13],
+    [ 7, 2, 12],   // narrowing
+    [ 8, 4, 10],   // bottom cap
+  ];
+
+  // Outline (1-px border by drawing wider rows first)
+  ctx.fillStyle = O;
+  prow(wx, wy, -2, 3, 11, O);              // top cap outline
+  for (const [gy, x0, x1] of body) prow(wx, wy, gy, x0-1, x1+1, O);
+  prow(wx, wy,  9, 3, 11, O);              // bottom cap outline
+
+  // Body fill + shading
+  for (const [gy, x0, x1] of body) {
+    prow(wx, wy, gy, x0, x1, G);
+    prow(wx, wy, gy, x0,   x0+1, gy <= 3 ? L : G); // left highlight
+    px(wx, wy, x1, gy, D);                           // right shadow
+  }
+
+  // Eyes — 2×2 pixel blocks
+  // Left eye
+  prow(wx, wy, 4, 3, 4, '#ffffff');
+  prow(wx, wy, 5, 3, 4, '#ffffff');
+  px(wx, wy, 3, 5, '#ffddcc'); px(wx, wy, 4, 5, '#cc4433');
+  px(wx, wy, 3, 4, '#ffffff'); // shine
+  // Right eye
+  prow(wx, wy, 4, 9, 10, '#ffffff');
+  prow(wx, wy, 5, 9, 10, '#ffffff');
+  px(wx, wy, 9, 5, '#ffddcc'); px(wx, wy,10, 5, '#cc4433');
+  px(wx, wy, 9, 4, '#ffffff'); // shine
+
+  // Mouth pixels
+  px(wx, wy, 6, 7, O); px(wx, wy, 7, 7, O); px(wx, wy, 8, 7, O);
+  px(wx, wy, 5, 8, O); px(wx, wy, 9, 8, O);
+
+  // Sword
+  const angle = blob.attacking ? blob.atkAngle : 0.3;
+  drawSword(blob.x, blob.y + blob.bobOff, angle, blob.attacking, blob.atkTimer);
+}
+
+function drawSword(bx, by, angle, swinging, atkTimer) {
+  ctx.save();
+  ctx.translate(bx + 7*P, by - 3*P);
+  ctx.rotate(angle);
+
+  // Blade — pixel columns
+  for (let g = -10; g <= -1; g++) {
+    ctx.fillStyle = g >= -3 ? '#aaaaaa' : '#dddddd';
+    ctx.fillRect(-P, g*P, P, P);
+    if (g <= -4) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, g*P, P, P); }
+  }
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(-P, -11*P, P, P); // tip
+
+  // Guard (3 wide × 1 tall)
+  ctx.fillStyle = '#ffcc00'; ctx.fillRect(-2*P, 0, 3*P, P);
+  ctx.fillStyle = '#cc9900'; ctx.fillRect(-2*P, 0, P, P);
+
+  // Handle
+  ctx.fillStyle = '#884422'; ctx.fillRect(-P, P, P, 3*P);
+  ctx.fillStyle = '#552200'; ctx.fillRect(-P, 3*P, P, P);
+
+  // Swing arc
+  if (swinging && atkTimer < 14) {
+    ctx.globalAlpha = 0.4 - atkTimer * 0.025;
+    ctx.strokeStyle = '#aaddff'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, 0, 44, -1.2, 0.5); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+// ── DRAW ENEMIES ──────────────────────────────────────────────────────────────
+function drawEnemies() {
+  for (const e of gs.enemies) {
+    if (e.dead) {
+      if (e.deathT > 12) {
+        ctx.globalAlpha = (e.deathT - 12) / 16;
+        drawEnemy(e, true);
+        ctx.globalAlpha = 1;
+      }
+      continue;
+    }
+    drawEnemy(e, false);
+  }
+}
+
+function drawEnemy(e, flash) {
+  // Pixel-aligned walk animation — integer pixel offsets only, no rotation
+  const bobY = e.type === 'goblin'
+    ? (Math.floor(e.ft / 7) % 2 === 0 ? 0 : -P)       // goblin: fast 2-frame hop
+    : (Math.floor(e.ft / 18) % 2 === 0 ? 0 : -P);      // giant:  slow stomp
+  ctx.save();
+  ctx.translate(Math.round(e.x), Math.round(e.y) + bobY);
+  if (e.type === 'goblin') drawGoblin(flash, e.isBlue);
+  else                     drawGiant(e.hp, e.maxHp, flash);
+  ctx.restore();
+
+  // HP bar for giant
+  if (e.type === 'giant' && !e.dead) {
+    const bw = 62, bh = 8;
+    const bx = e.x - bw/2, by = e.y - e.hh - 16;
+    ctx.fillStyle = '#222';    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = e.hp>1?'#ff5533':'#ff2222';
+    ctx.fillRect(bx, by, bw * e.hp/e.maxHp, bh);
+    ctx.strokeStyle = '#666'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, bw, bh);
+  }
+}
+
+function drawGoblin(flash, isBlue) {
+  // Pixel art goblin — origin is entity (e.x, e.y), draw upward
+  // Sprite: 9 wide × 14 tall in grid units, origin at bottom-center
+  const wx = -5*P, wy = -14*P; // top-left of sprite relative to translate origin
+  const O  = flash ? '#ffffff' : (isBlue ? '#0a1a3a' : '#1a3a1a');
+  const G  = flash ? '#ffffff' : (isBlue ? '#4488ee' : '#44bb55');
+  const Gd = flash ? '#dddddd' : (isBlue ? '#2255aa' : '#2a8a33');
+  const Gl = flash ? '#ffffff' : (isBlue ? '#88bbff' : '#66dd77');
+
+  // Blue goblin: pulsing glow outline
+  if (isBlue && !flash) {
+    const pulse = 0.45 + 0.35 * Math.sin(Date.now() * 0.006);
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#aaccff';
+    ctx.fillRect(wx - P, wy,       11*P, 14*P);
+    ctx.globalAlpha = 1;
+  }
+
+  // Ears (pointy, drawn before body)
+  ctx.fillStyle = Gd;
+  ctx.fillRect(wx+0*P, wy+0*P, P, 2*P);   // left ear spike
+  ctx.fillRect(wx+8*P, wy+0*P, P, 2*P);   // right ear spike
+
+  // Outline + body rows [gy, x0, x1]
+  const rows = [
+    [2, 1, 7], [3, 1, 7], [4, 1, 7], // head
+    [5, 1, 7], [6, 1, 7],
+    [7, 2, 6], [8, 2, 6], [9, 2, 6], // neck/body
+    [10,2, 6], [11,2, 6], [12,2, 6],
+    [13,2, 6],
+  ];
+  for (const [gy, x0, x1] of rows) prow(wx, wy, gy, x0-1, x1+1, O);
+  for (const [gy, x0, x1] of rows) prow(wx, wy, gy, x0, x1, G);
+  for (const [gy, x0, x1] of rows) { px(wx,wy, x0, gy, Gl); px(wx,wy, x1, gy, Gd); }
+
+  if (!flash) {
+    // Angry eyes
+    prow(wx, wy, 4, 2, 3, '#ff4444');
+    prow(wx, wy, 4, 5, 6, '#ff4444');
+    prow(wx, wy, 5, 2, 3, '#111111');
+    prow(wx, wy, 5, 5, 6, '#111111');
+    // Brow (angled pixels)
+    px(wx,wy, 1,3,'#222'); px(wx,wy, 2,3,'#222');
+    px(wx,wy, 6,3,'#222'); px(wx,wy, 7,3,'#222');
+    // Teeth
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(wx+3*P, wy+7*P, P, P); ctx.fillRect(wx+5*P, wy+7*P, P, P);
+  }
+
+  // Club (left side)
+  ctx.fillStyle = flash ? '#fff' : '#7a3c10';
+  ctx.fillRect(wx-2*P, wy+3*P, P, 8*P);
+  ctx.fillStyle = flash ? '#ddd' : '#994422';
+  ctx.fillRect(wx-3*P, wy+2*P, 3*P, 2*P); // club head
+}
+
+function drawGiant(hp, maxHp, flash) {
+  // Pixel art giant — origin at entity (e.x, e.y), draw upward
+  // Sprite: 18 wide × 22 tall grid units
+  const wx = -9*P, wy = -22*P;
+  const O  = flash ? '#ffffff' : '#2a1a0a';
+  const B  = flash ? '#ffffff' : '#8b6914'; // body tan
+  const Bl = flash ? '#ffffff' : '#b89040'; // light
+  const Bd = flash ? '#dddddd' : '#5a4008'; // dark
+  const Ar = flash ? '#cccccc' : '#667788'; // armour
+
+  // Legs
+  const legRows = [[14,3,6],[15,3,6],[16,3,6],[17,3,6],[18,3,6],[19,3,6],[20,3,6],[21,3,6]];
+  const legRows2= [[14,11,14],[15,11,14],[16,11,14],[17,11,14],[18,11,14],[19,11,14],[20,11,14],[21,11,14]];
+  for (const [gy,x0,x1] of [...legRows,...legRows2]) { prow(wx,wy,gy,x0-1,x1+1,O); prow(wx,wy,gy,x0,x1,Bd); }
+
+  // Body rows
+  const body = [
+    [4,3,14],[5,2,15],[6,2,15],[7,2,15],[8,2,15],
+    [9,2,15],[10,2,15],[11,2,15],[12,2,15],[13,3,14],
+  ];
+  for (const [gy,x0,x1] of body) prow(wx,wy,gy,x0-1,x1+1,O);
+  for (const [gy,x0,x1] of body) { prow(wx,wy,gy,x0,x1,B); px(wx,wy,x0,gy,Bl); px(wx,wy,x1,gy,Bd); }
+
+  // Arms
+  const armL = [[6,0,2],[7,0,2],[8,0,2],[9,0,2],[10,0,2],[11,0,1]];
+  const armR = [[6,15,17],[7,15,17],[8,15,17],[9,15,17],[10,15,17],[11,15,16]];
+  for (const [gy,x0,x1] of [...armL,...armR]) { prow(wx,wy,gy,x0-1,x1+1,O); prow(wx,wy,gy,x0,x1,B); }
+
+  // Head
+  const head = [[0,4,13],[1,3,14],[2,3,14],[3,3,14]];
+  for (const [gy,x0,x1] of head) prow(wx,wy,gy,x0-1,x1+1,O);
+  for (const [gy,x0,x1] of head) { prow(wx,wy,gy,x0,x1,B); px(wx,wy,x0,gy,Bl); }
+
+  if (!flash) {
+    // Eyes
+    prow(wx,wy, 1, 5, 6, '#cc3300'); prow(wx,wy, 1, 11, 12, '#cc3300');
+    prow(wx,wy, 2, 5, 6, '#111');    prow(wx,wy, 2, 11, 12, '#111');
+    // Nose
+    px(wx,wy, 8, 2, Bd); px(wx,wy, 9, 2, Bd);
+    // Frown
+    prow(wx,wy, 3, 6, 7, O); prow(wx,wy, 3, 10, 11, O);
+    prow(wx,wy, 4, 7, 10, O);
+    // Armour stripe
+    ctx.fillStyle = Ar;
+    ctx.fillRect(wx+3*P, wy+9*P, 12*P, P);
+    ctx.fillRect(wx+2*P, wy+10*P, 14*P, P);
+  }
+}
+
+// ── HEART ANIMATIONS ─────────────────────────────────────────────────────────
+function updateHeartAnims() {
+  for (let i = gs.heartAnims.length - 1; i >= 0; i--) {
+    gs.heartAnims[i].t++;
+    if (gs.heartAnims[i].t >= gs.heartAnims[i].maxT) gs.heartAnims.splice(i, 1);
+  }
+}
+
+function drawHeartAnims() {
+  for (const h of gs.heartAnims) {
+    const prog  = h.t / h.maxT;
+    const ease  = 1 - Math.pow(1 - prog, 3);   // ease-out cubic
+    const x     = h.x + (h.tx - h.x) * ease;
+    const y     = h.y + (h.ty - h.y) * ease;
+    // Pixel size shrinks from 7 → 4, snapped to integers
+    const S     = Math.round(7 - 3 * ease);
+    const alpha = prog > 0.82 ? 1 - (prog - 0.82) / 0.18 : 1;
+    // Centre the sprite on (x,y)
+    const cx    = Math.round(x - 4.5 * S);
+    const cy    = Math.round(y - 4.5 * S);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawPixelHeart(ctx, cx, cy, S, true);
+    ctx.restore();
+  }
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function drawHUD() {
+  // Hearts
+  for (let i = 0; i < blob.maxLives; i++) {
+    drawPixelHeart(ctx, 10 + i*44, 6, 4, i < blob.lives);
+  }
+
+  // Score
+  ctx.textAlign = 'right';
+  ctx.font = 'bold 20px Arial';
+  ctx.fillStyle = 'white';
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 5;
+  ctx.fillText('Score: ' + gs.score, canvas.width - 14, 30);
+  ctx.shadowBlur = 0;
+
+  // Phase
+  ctx.textAlign = 'center';
+  ctx.font = '14px Arial';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillText('Phase ' + gs.phase, canvas.width/2, 22);
+
+  // Special cooldown — pixel art flame bar (Style C)
+  drawFlameBar(10, canvas.height - 30, 1 - blob.specialCD / blob.specialMax);
+}
+
+// ── FLAME BAR (special cooldown, Style C) ────────────────────────────────────
+function drawFlameBar(x, y, fill) {
+  const NBLOCKS = 10, BW = 2*P, BH = 5*P; // each block 8×20 px
+  const filled  = Math.round(fill * NBLOCKS);
+
+  function blockCol(i) {
+    if (i < 3) return '#cc2200';
+    if (i < 6) return '#ff6600';
+    if (i < 8) return '#ff9900';
+    return '#ffdd00';
+  }
+
+  // Border
+  ctx.fillStyle = '#111122';
+  ctx.fillRect(x-2, y-2, NBLOCKS*BW+4, BH+4);
+
+  // Blocks
+  for (let i = 0; i < NBLOCKS; i++) {
+    const bx = x + i*BW;
+    ctx.fillStyle = i < filled ? blockCol(i) : '#1a1a2e';
+    ctx.fillRect(bx, y, BW, BH);
+    // 1-pixel shine on top of lit blocks
+    if (i < filled) {
+      ctx.fillStyle = 'rgba(255,220,100,0.38)';
+      ctx.fillRect(bx, y, BW, P);
+    }
+    // 1-pixel separator between blocks
+    ctx.fillStyle = '#111122';
+    if (i < NBLOCKS-1) ctx.fillRect(bx+BW-1, y, 1, BH);
+  }
+
+  // Pixel flame above bar when ready — animates with gs.frame
+  if (fill >= 1) {
+    const frame = gs.frame;
+    const flicker = Math.floor(frame / 4) % 2; // alternates 0/1
+    const fx = x + 4*BW;   // centered over bar
+    const fy = y - 6*P;
+    // Static base of flame
+    const base = [
+      [4,0,'#cc2200'],[4,1,'#cc2200'],[4,2,'#cc2200'],[4,3,'#cc2200'],[4,4,'#cc2200'],[4,5,'#cc2200'],
+      [3,0,'#ff4400'],[3,1,'#ff6600'],[3,2,'#ff4400'],[3,3,'#ff4400'],[3,4,'#ff4400'],[3,5,'#ff4400'],
+      [2,1,'#ff6600'],[2,2,'#ffaa00'],[2,3,'#ff6600'],[2,4,'#ff6600'],
+    ];
+    // Flickering tip (two alternating frames)
+    const tip0 = [[1,2,'#ffaa00'],[1,3,'#ffaa00'],[0,2,'#ffdd44'],[0,3,'#ffdd44']];
+    const tip1 = [[1,1,'#ffaa00'],[1,2,'#ffaa00'],[1,3,'#ff8800'],[0,2,'#ffdd44']];
+    const tip   = flicker === 0 ? tip0 : tip1;
+
+    for (const [gy, gx, col] of [...base, ...tip]) {
+      ctx.fillStyle = col;
+      ctx.fillRect(fx + gx*P, fy + gy*P, P, P);
+    }
+  }
+}
+
+// Pixel art heart style B — (cx,cy) is top-left corner, S is pixel size
+const HEART_OUTLINE = [
+  [0,2],[0,3],[0,5],[0,6],
+  [1,1],[1,4],[1,7],
+  [2,0],[2,8],
+  [3,0],[3,8],
+  [4,0],[4,8],
+  [5,1],[5,7],
+  [6,2],[6,6],
+  [7,3],[7,5],
+  [8,4],
+];
+const HEART_FILL = [
+  [1,2],[1,3],[1,5],[1,6],
+  [2,1],[2,2],[2,3],[2,4],[2,5],[2,6],[2,7],
+  [3,1],[3,2],[3,3],[3,4],[3,5],[3,6],[3,7],
+  [4,1],[4,2],[4,3],[4,4],[4,5],[4,6],[4,7],
+  [5,2],[5,3],[5,4],[5,5],[5,6],
+  [6,3],[6,4],[6,5],
+  [7,4],
+];
+
+function drawPixelHeart(c, cx, cy, S, filled) {
+  const x = Math.round(cx), y = Math.round(cy);
+  c.fillStyle = '#111122';
+  for (const [r,col] of HEART_OUTLINE) c.fillRect(x+col*S, y+r*S, S, S);
+  c.fillStyle = filled ? '#ee2244' : '#334455';
+  for (const [r,col] of HEART_FILL)    c.fillRect(x+col*S, y+r*S, S, S);
+  if (filled) {
+    // Top-left shine
+    c.fillStyle = '#ff99bb';
+    c.fillRect(x+2*S, y+1*S, S, S);
+    c.fillRect(x+3*S, y+1*S, S, S);
+    c.fillRect(x+2*S, y+2*S, S, S);
+  }
+}
+
+// ── GAME OVER ─────────────────────────────────────────────────────────────────
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const pw = 420, ph = 268;
+  const px = canvas.width/2 - pw/2, py = canvas.height/2 - ph/2;
+  ctx.fillStyle   = '#110820';
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 3;
+  ctx.fillRect(px, py, pw, ph);
+  ctx.strokeRect(px, py, pw, ph);
+
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 54px Arial';
+  ctx.fillStyle = '#ff4455';
+  ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 18;
+  ctx.fillText('GAME OVER', canvas.width/2, py+64);
+  ctx.shadowBlur = 0;
+
+  ctx.font = 'bold 22px Arial'; ctx.fillStyle = 'white';
+  ctx.fillText('Poäng: ' + gs.score, canvas.width/2, py+108);
+
+  ctx.font = 'bold 19px Arial'; ctx.fillStyle = '#FFD700';
+  ctx.fillText('Rekord: ' + highScore, canvas.width/2, py+140);
+
+  if (gs.score > 0 && gs.score >= highScore) {
+    ctx.font = 'bold 15px Arial'; ctx.fillStyle = '#ff44ff';
+    ctx.fillText('NYTT REKORD!', canvas.width/2, py+165);
+  }
+
+  // Button
+  const bx = canvas.width/2 - 100, by = py+195, bw = 200, bh = 44;
+  ctx.fillStyle = '#4ecb71';
+  ctx.beginPath();
+  ctx.moveTo(bx+10, by); ctx.lineTo(bx+bw-10, by);
+  ctx.quadraticCurveTo(bx+bw, by, bx+bw, by+10);
+  ctx.lineTo(bx+bw, by+bh-10); ctx.quadraticCurveTo(bx+bw, by+bh, bx+bw-10, by+bh);
+  ctx.lineTo(bx+10, by+bh);    ctx.quadraticCurveTo(bx, by+bh, bx, by+bh-10);
+  ctx.lineTo(bx, by+10);       ctx.quadraticCurveTo(bx, by, bx+10, by);
+  ctx.closePath(); ctx.fill();
+  ctx.font = 'bold 21px Arial'; ctx.fillStyle = '#0a200f';
+  ctx.fillText('Spela igen', canvas.width/2, by+29);
+
+  ctx.textAlign = 'left';
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function rectsOverlap(x1,y1,w1,h1, x2,y2,w2,h2) {
+  return x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2;
+}
+
+function endGame() {
+  gs.state = 'gameover';
+  if (gs.score > highScore) {
+    highScore = gs.score;
+    localStorage.setItem('blobKnightHS', highScore);
+  }
+}
+
+function restartGame() {
+  resetState();
+  resetBlob();
+  spaceJustPressed = false;
+  shiftJustPressed = false;
+}
+
+// ── DIFFICULTY ────────────────────────────────────────────────────────────────
+function updateDifficulty() {
+  const t = (performance.now() - gs.startTime) / 1000; // real seconds elapsed
+  // Slow start (1.4), gradual ramp, then accelerates sharply after ~90s
+  gs.worldSpeed = 1.4 + Math.pow(Math.max(0, t - 5) * 0.008, 1.0) * t * 0.015 + (t > 90 ? (t - 90) * 0.04 : 0);
+  gs.worldSpeed = Math.min(gs.worldSpeed, 8);
+  gs.spawnRate  = Math.max(45, 220 - t * 1.0);
+  if (t > 90) gs.phase = Math.max(gs.phase, 2);
+  if (t > 240) gs.phase = Math.max(gs.phase, 3);
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+function update() {
+  if (gs.state !== 'playing') return;
+
+  gs.frame++;
+  gs.distance++;
+  gs.score = Math.max(gs.score, (gs.distance / 12) | 0);
+
+  updateDifficulty();
+  updateBackground();
+  updateBlob();
+  updateFireballs();
+  updateEnemies();
+  updateParticles();
+  updateHeartAnims();
+  updateFireballExplosions();
+
+  gs.spawnTimer++;
+  if (gs.spawnTimer >= gs.spawnRate) {
+    spawnEnemy();
+    gs.spawnTimer = 0;
+  }
+}
+
+function draw() {
+  drawBackground();
+  drawParticles();
+  drawFireballExplosions();
+  drawEnemies();
+  drawFireballs();
+  drawBlob();
+  drawHeartAnims();
+  drawHUD();
+  if (gs.state === 'gameover') drawGameOver();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── APPLE TOUCH ICON (generated from blob sprite, 180×180) ───────────────────
+(function generateAppIcon() {
+  const ic = document.createElement('canvas');
+  ic.width = ic.height = 180;
+  const c = ic.getContext('2d');
+  const Q = 8;
+
+  // Sky bands
+  c.fillStyle = '#aaddff'; c.fillRect(0,   0, 180,  81);
+  c.fillStyle = '#cceeff'; c.fillRect(0,  81, 180,  63);
+  c.fillStyle = '#bbffee'; c.fillRect(0, 144, 180,  36);
+
+  // Ground
+  const GY = 148;
+  c.fillStyle = '#99dd66'; c.fillRect(0, GY,    180, 32);
+  c.fillStyle = '#77bb44'; c.fillRect(0, GY,    180,  Q);
+  c.fillStyle = '#99dd66'; c.fillRect(0, GY+Q,  180,  Q);
+
+  // Pixel cloud
+  c.fillStyle = '#ffffff';
+  c.fillRect(102, 20, 44, Q); c.fillRect(94, 20+Q, 60, Q); c.fillRect(102, 20+2*Q, 44, Q);
+
+  // Blob sprite helpers (local to this scope)
+  const bx = 90 - 7*Q, by = GY - 10*Q;
+  function idot(gx,gy,col){ c.fillStyle=col; c.fillRect(bx+gx*Q,by+gy*Q,Q,Q); }
+  function irun(gy,x0,x1,col){ c.fillStyle=col; c.fillRect(bx+x0*Q,by+gy*Q,(x1-x0+1)*Q,Q); }
+
+  const body=[[-1,4,10],[0,2,12],[1,1,13],[2,1,13],[3,1,13],[4,1,13],[5,1,13],[6,1,13],[7,2,12],[8,4,10]];
+  const O='#1a3a1a', G='#55bb55', L='#aaee88', D='#2a7a2a';
+  irun(-2,3,11,O);
+  for (const [gy,x0,x1] of body) irun(gy,x0-1,x1+1,O);
+  irun(9,3,11,O);
+  for (const [gy,x0,x1] of body) {
+    irun(gy,x0,x1,G);
+    irun(gy,x0,x0+1, gy<=3 ? L : G);
+    idot(x1,gy,D);
+  }
+  // Eyes
+  irun(4,3,4,'#fff'); irun(5,3,4,'#fff');
+  idot(3,5,'#ffddcc'); idot(4,5,'#cc4433'); idot(3,4,'#fff');
+  irun(4,9,10,'#fff'); irun(5,9,10,'#fff');
+  idot(9,5,'#ffddcc'); idot(10,5,'#cc4433'); idot(9,4,'#fff');
+  // Mouth
+  idot(6,7,O); idot(7,7,O); idot(8,7,O); idot(5,8,O); idot(9,8,O);
+
+  // Sword (pixel art, rest angle)
+  const sx = bx + 14*Q, sy = by + 5*Q;
+  for (const [dy,dx,col] of [[0,0,'#fff'],[1,1,'#ddd'],[2,1,'#ddd'],[3,2,'#aaa'],[4,2,'#aaa'],[5,3,'#aaa'],[6,3,'#aaa'],[7,4,'#888'],[8,4,'#888']]) {
+    c.fillStyle=col; c.fillRect(sx+dx*Q, sy-dy*Q, Q, Q);
+  }
+  c.fillStyle='#ffcc00'; c.fillRect(sx+Q, sy+Q, 3*Q, Q);
+  c.fillStyle='#cc9900'; c.fillRect(sx+Q, sy+Q, Q, Q);
+  c.fillStyle='#884422'; c.fillRect(sx+2*Q, sy+2*Q, Q, 3*Q);
+  c.fillStyle='#552200'; c.fillRect(sx+2*Q, sy+4*Q, Q, Q);
+
+  // Bottom label bar
+  c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, 157, 180, 23);
+  c.fillStyle = '#ffffff';
+  c.font = 'bold 13px monospace';
+  c.textAlign = 'center';
+  c.fillText('BLOB KNIGHT', 90, 174);
+
+  const link = document.createElement('link');
+  link.rel  = 'apple-touch-icon';
+  link.href = ic.toDataURL('image/png');
+  document.head.appendChild(link);
+})();
+
+resetState();
+resetBlob();
+loop();
+</script>
+</body>
+</html>
