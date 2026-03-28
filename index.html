@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <title>Blob Knight</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -39,7 +40,15 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="controls">Mellanslag: Svärd &nbsp;|&nbsp; Shift: Eldboll &nbsp;|&nbsp; Mobil: Tryck på skärmen / mätaren</div>
+<div id="controls"></div>
+<script>
+  (function() {
+    const mobile = navigator.maxTouchPoints > 0;
+    document.getElementById('controls').textContent = mobile
+      ? 'Tryck på skärmen: Svärd  |  Tryck på mätaren: Eldboll'
+      : 'Mellanslag: Svärd  |  Shift: Eldboll  |  Enter: Spela igen';
+  })();
+</script>
 <script>
 'use strict';
 
@@ -71,6 +80,57 @@ function drawRows(wx, wy, rows) {
 
 function easeOut(t) { return 1 - Math.pow(1 - t, 2); }
 function easeIn(t)  { return t * t; }
+
+// ── AUDIO (Web Audio API – synthesised chiptune sfx) ─────────────────────────
+const snd = (() => {
+  let ac = null;
+  function ctx() {
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function tone(freq, endFreq, dur, vol = 0.28, wave = 'square') {
+    try {
+      const c = ctx(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = wave;
+      o.frequency.setValueAtTime(freq, c.currentTime);
+      if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, c.currentTime + dur);
+      g.gain.setValueAtTime(vol, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      o.start(c.currentTime); o.stop(c.currentTime + dur);
+    } catch(e) {}
+  }
+  function noise(dur, vol = 0.14) {
+    try {
+      const c = ctx(), n = c.sampleRate * dur;
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(), g = c.createGain();
+      src.buffer = buf; src.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(vol, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      src.start();
+    } catch(e) {}
+  }
+  function later(fn, ms) { setTimeout(fn, ms); }
+  return {
+    swing()       { noise(0.07, 0.1); tone(280, 140, 0.08, 0.12); },
+    hit()         { tone(220, 110, 0.09, 0.22); },
+    die()         { tone(300, 80, 0.22, 0.26); noise(0.18, 0.09); },
+    giantDie()    { tone(120, 40, 0.38, 0.32); noise(0.3, 0.16); },
+    iceDie()      { tone(900, 300, 0.18, 0.18, 'sine'); later(() => tone(1400, 700, 0.12, 0.1, 'triangle'), 60); },
+    shoot()       { tone(180, 380, 0.11, 0.22); },
+    iceShoot()    { tone(500, 900, 0.11, 0.18, 'triangle'); later(() => tone(900, 600, 0.12, 0.1, 'sine'), 80); },
+    explode()     { noise(0.28, 0.22); tone(140, 55, 0.28, 0.16); },
+    iceExplode()  { tone(1100, 350, 0.18, 0.14, 'sine'); noise(0.12, 0.08); later(() => tone(700, 1500, 0.1, 0.1, 'triangle'), 80); },
+    hurt()        { tone(140, 70, 0.22, 0.32); },
+    heart()       { [262,330,392,523].forEach((f,i) => later(() => tone(f, f, 0.11, 0.22), i*75)); },
+    gift()        { [330,440,554,659,880].forEach((f,i) => later(() => tone(f, f*1.04, 0.09, 0.26), i*55)); },
+    iceActivate() { [1000,1300,800,1600,600,2000].forEach((f,i) => later(() => tone(f, f*1.6, 0.11, 0.16, 'sine'), i*45)); },
+  };
+})();
 
 // ── INPUT ────────────────────────────────────────────────────────────────────
 const keys = {};
@@ -146,7 +206,12 @@ function resetState() {
     particles:      [],
     heartAnims:          [],
     fireballExplosions:  [],
-    nextHeartScore: 500,   // spawn blue goblin at every 500 pts
+    iceExplosions:       [],
+    gifts:               [],
+    nextHeartScore: 500,
+    nextGiftScore:  200,
+    icePower:       false,
+    icePowerEnd:    0,
     startTime:      performance.now(),
   };
 }
@@ -179,6 +244,7 @@ function updateBlob() {
     blob.atkTimer  = 0;
     blob.atkAngle  = -0.5;
     spaceJustPressed = false;
+    snd.swing();
   }
   if (blob.attacking) {
     blob.atkTimer++;
@@ -192,7 +258,7 @@ function updateBlob() {
   if (blob.specialCD > 0) blob.specialCD--;
   if (shiftJustPressed && blob.specialCD === 0) {
     launchFireball();
-    blob.specialCD = blob.specialMax;
+    blob.specialCD = gs.icePower ? 60 : blob.specialMax;
     shiftJustPressed = false;
   }
   shiftJustPressed = false;
@@ -213,6 +279,7 @@ function blobHurt() {
   blob.invTimer   = 90;
   blob.blinkT     = 0;
   spawnParticles(blob.x, blob.y, '#ff4444', 10);
+  snd.hurt();
   if (blob.lives <= 0) endGame();
 }
 
@@ -225,11 +292,22 @@ function checkSwordHit() {
       damageEnemy(e, 1);
     }
   }
+  for (const g of gs.gifts) {
+    if (g.dead) continue;
+    if (Math.abs(g.x - sx) < 95 && Math.abs(g.y - sy) < 80) {
+      g.dead = true;
+      g.deathT = 6;
+      spawnConfetti(g.x, g.y - 18);
+      snd.gift();
+      activateIcePower();
+    }
+  }
 }
 
 // ── FIREBALL ─────────────────────────────────────────────────────────────────
 function launchFireball() {
   gs.fireballs.push({ x: blob.x+28, y: blob.y-10+blob.bobOff, vx:8, t:0, active:true });
+  if (gs.icePower) snd.iceShoot(); else snd.shoot();
 }
 
 function updateFireballs() {
@@ -255,10 +333,11 @@ function updateFireballs() {
 function drawFireballs() {
   for (const fb of gs.fireballs) {
     const pulse = Math.sin(fb.t * 0.35) * 3;
+    const ice = gs.icePower;
     // Trail
     for (let t = 4; t >= 1; t--) {
       ctx.globalAlpha = 0.08 * t;
-      ctx.fillStyle = '#ff5500';
+      ctx.fillStyle = ice ? '#0088cc' : '#ff5500';
       ctx.beginPath();
       ctx.arc(fb.x - t*9, fb.y + Math.sin(fb.t*0.2+t)*3, 8-t, 0, Math.PI*2);
       ctx.fill();
@@ -266,13 +345,19 @@ function drawFireballs() {
     ctx.globalAlpha = 1;
     // Glow
     const gr = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, 18+pulse);
-    gr.addColorStop(0,   'rgba(255,220,60,0.95)');
-    gr.addColorStop(0.45,'rgba(255,100,0,0.6)');
-    gr.addColorStop(1,   'rgba(255,40,0,0)');
+    if (ice) {
+      gr.addColorStop(0,   'rgba(200,240,255,0.95)');
+      gr.addColorStop(0.45,'rgba(0,150,255,0.6)');
+      gr.addColorStop(1,   'rgba(0,80,200,0)');
+    } else {
+      gr.addColorStop(0,   'rgba(255,220,60,0.95)');
+      gr.addColorStop(0.45,'rgba(255,100,0,0.6)');
+      gr.addColorStop(1,   'rgba(255,40,0,0)');
+    }
     ctx.fillStyle = gr;
     ctx.beginPath(); ctx.arc(fb.x, fb.y, 18+pulse, 0, Math.PI*2); ctx.fill();
     // Core
-    ctx.fillStyle = '#fff8aa';
+    ctx.fillStyle = ice ? '#e0f8ff' : '#fff8aa';
     ctx.beginPath(); ctx.arc(fb.x, fb.y, 7, 0, Math.PI*2); ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -320,10 +405,16 @@ function damageEnemy(e, dmg, source) {
   if (e.dead) return;
   e.hp -= dmg;
   spawnParticles(e.x, e.y - e.hh, e.isBlue ? '#88ccff' : '#ffff44', 7);
+  if (e.hp > 0) snd.hit();
   if (e.hp <= 0) {
     e.dead   = true;
     e.deathT = source === 'fireball' ? 6 : 28;
-    if (source === 'fireball') spawnFireballExplosion(e.x, e.y, e.type);
+    if (source === 'fireball') {
+      if (gs.icePower) { spawnIceExplosion(e.x, e.y, e.type); snd.iceExplode(); }
+      else             { spawnFireballExplosion(e.x, e.y, e.type); snd.explode(); }
+    } else {
+      if (e.type === 'giant') snd.giantDie(); else snd.die();
+    }
     if (e.isBlue) {
       // Extra life + floating heart animation
       const targetX = 26 + blob.lives * 36;
@@ -331,6 +422,7 @@ function damageEnemy(e, dmg, source) {
       blob.lives++;
       blob.maxLives = Math.max(blob.maxLives, blob.lives);
       spawnParticles(e.x, e.y - e.hh, '#ff88aa', 14);
+      snd.heart();
       gs.heartAnims.push({
         x: e.x, y: e.y - e.hh,
         tx: targetX, ty: targetY,
@@ -448,6 +540,186 @@ function drawFireballExplosions() {
       ctx.fillRect(dx, dy, d.size, d.size);
     }
     ctx.globalAlpha = 1;
+  }
+}
+
+// ── GIFT (Present A) ─────────────────────────────────────────────────────────
+function spawnGift() {
+  gs.gifts.push({ x: canvas.width + 30, y: 308, hw: 20, hh: 18, dead: false, deathT: 0, ft: 0 });
+}
+
+function updateGifts() {
+  for (let i = gs.gifts.length - 1; i >= 0; i--) {
+    const g = gs.gifts[i];
+    g.ft++;
+    if (g.dead) { if (--g.deathT <= 0) gs.gifts.splice(i, 1); continue; }
+    g.x -= gs.worldSpeed * 0.95;
+    if (g.x < -60) gs.gifts.splice(i, 1);
+  }
+}
+
+function drawGifts() {
+  for (const g of gs.gifts) {
+    const bobY = Math.floor(g.ft / 8) % 2 === 0 ? 0 : -P;
+    ctx.save();
+    ctx.translate(Math.round(g.x), Math.round(g.y) + bobY);
+    if (g.dead) ctx.globalAlpha = g.deathT / 6;
+    drawPresent();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawPresent() {
+  const ox = -4*P, oy = -9*P;
+  // Box body
+  ctx.fillStyle = '#cc3366'; ctx.fillRect(ox,     oy+5*P, 8*P, 4*P);
+  ctx.fillStyle = '#991144'; ctx.fillRect(ox,     oy+8*P, 8*P, P);
+  ctx.fillStyle = '#ff5588'; ctx.fillRect(ox,     oy+5*P, 8*P, P);
+  // Ribbon
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox+3*P, oy+5*P, 2*P, 4*P);
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox,     oy+6*P, 8*P, 2*P);
+  ctx.fillStyle = '#ffaa00'; ctx.fillRect(ox+3*P, oy+6*P, 2*P, 2*P);
+  // Bow loops
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox+P,   oy+2*P, 2*P, 3*P);
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox+5*P, oy+2*P, 2*P, 3*P);
+  ctx.fillStyle = '#ffaa00'; ctx.fillRect(ox+P,   oy+4*P, 2*P, P);
+  ctx.fillStyle = '#ffaa00'; ctx.fillRect(ox+5*P, oy+4*P, 2*P, P);
+  ctx.fillStyle = '#ffee88'; ctx.fillRect(ox+P,   oy+2*P, P,   P);
+  ctx.fillStyle = '#ffee88'; ctx.fillRect(ox+5*P, oy+2*P, P,   P);
+  // Knot
+  ctx.fillStyle = '#ffcc00'; ctx.fillRect(ox+3*P, oy+3*P, 2*P, 2*P);
+  // Box outline
+  ctx.fillStyle = '#220011';
+  ctx.fillRect(ox-1,   oy+5*P, 1,   4*P);
+  ctx.fillRect(ox+8*P, oy+5*P, 1,   4*P);
+  ctx.fillRect(ox,     oy+9*P, 8*P, 1);
+  // Sparkle
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(ox+7*P, oy,     P, P);
+  ctx.fillRect(ox+7*P, oy+2*P, 2, 2);
+}
+
+function spawnConfetti(x, y) {
+  for (const col of ['#ff4466','#ff8800','#ffdd00','#44cc44','#44aaff','#cc44ff','#ff44cc','#ffffff']) {
+    spawnParticles(x, y, col, 4);
+  }
+}
+
+// ── ICE POWER ─────────────────────────────────────────────────────────────────
+function activateIcePower() {
+  gs.icePower    = true;
+  gs.icePowerEnd = performance.now() + 10000;
+  blob.specialCD = 0;
+  snd.iceActivate();
+}
+
+// ── ICE EXPLOSION (Style C – snowflake burst + snow) ─────────────────────────
+function spawnIceExplosion(x, y, type) {
+  const n = type === 'giant' ? 36 : 24;
+  const snow = [];
+  for (let i = 0; i < n; i++) {
+    snow.push({
+      ox:    (Math.random() - 0.5) * 30,
+      vx:    (Math.random() - 0.5) * 1.5,
+      vy:   -(Math.random() * 2 + 0.5),
+      size:  Math.floor(Math.random() * 3) + 2,
+      col:   Math.random() > 0.55 ? '#ffffff' : '#aaddff',
+      delay: Math.random() * 18 | 0,
+    });
+  }
+  gs.iceExplosions.push({ x, y, t: 0, maxT: 90, snow });
+}
+
+function updateIceExplosions() {
+  for (let i = gs.iceExplosions.length - 1; i >= 0; i--) {
+    gs.iceExplosions[i].t++;
+    if (gs.iceExplosions[i].t >= gs.iceExplosions[i].maxT) gs.iceExplosions.splice(i, 1);
+  }
+}
+
+function drawIceExplosions() {
+  for (const ex of gs.iceExplosions) {
+    const p  = ex.t / ex.maxT;
+    const cx = ex.x, cy = ex.y - 28;
+
+    // Expanding 8-arm snowflake (p: 0.05 → 0.55)
+    if (p >= 0.05 && p < 0.55) {
+      const rp = (p - 0.05) / 0.50;
+      const r  = easeOut(rp) * 52;
+      ctx.globalAlpha = Math.max(0, 1 - rp);
+      for (let arm = 0; arm < 8; arm++) {
+        const ang = (arm / 8) * Math.PI * 2;
+        for (let seg = 0; seg < 4; seg++) {
+          const dist = r * (seg + 1) / 4;
+          const px = cx + Math.cos(ang) * dist;
+          const py = cy + Math.sin(ang) * dist * 0.65;
+          ctx.fillStyle = seg < 2 ? '#ffffff' : '#88ccff';
+          ctx.fillRect(px - 3, py - 3, 6, 6);
+          if (seg === 1 || seg === 2) {
+            const bx = cx + Math.cos(ang + 0.6) * dist * 0.7;
+            const by = cy + Math.sin(ang + 0.6) * dist * 0.65 * 0.7;
+            ctx.fillStyle = '#aaddff';
+            ctx.fillRect(bx - 2, by - 2, 4, 4);
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Snow particles fall (p: 0.22 → 1.0)
+    if (p >= 0.22) {
+      const ap = (p - 0.22) / 0.78;
+      for (const s of ex.snow) {
+        const dl = s.delay / ex.maxT;
+        if (ap < dl) continue;
+        const lp = Math.min((ap - dl) / 0.65, 1);
+        const x  = cx + s.ox + s.vx * lp * 45;
+        const y  = cy - 30 + s.vy * lp * 35 + easeIn(lp) * 75;
+        if (y > GROUND_Y + 4) continue;
+        ctx.globalAlpha = Math.max(0, 1 - lp * 0.8);
+        ctx.fillStyle = s.col;
+        ctx.fillRect(x, y, s.size, s.size);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// ── ICE BAR (Style A – same blocks as flame bar, dark→light blue, snowflake) ──
+function drawIceBar(x, y, fill) {
+  const NBLOCKS = 10, BW = 2*P, BH = 5*P;
+  const filled  = Math.round(fill * NBLOCKS);
+  function blockCol(i) {
+    if (i < 3) return '#001855';
+    if (i < 6) return '#0044aa';
+    if (i < 8) return '#0088dd';
+    return '#44ccff';
+  }
+  ctx.fillStyle = '#050a1a';
+  ctx.fillRect(x-2, y-2, NBLOCKS*BW+4, BH+4);
+  for (let i = 0; i < NBLOCKS; i++) {
+    const bx = x + i*BW;
+    ctx.fillStyle = i < filled ? blockCol(i) : '#0a0a20';
+    ctx.fillRect(bx, y, BW, BH);
+    if (i < filled) {
+      ctx.fillStyle = 'rgba(180,240,255,0.35)';
+      ctx.fillRect(bx, y, BW, P);
+    }
+    ctx.fillStyle = '#050a1a';
+    if (i < NBLOCKS-1) ctx.fillRect(bx+BW-1, y, 1, BH);
+  }
+  // Pixel snowflake on top when ready
+  if (fill >= 1) {
+    const fx = x + 3*BW, fy = y - 6*P;
+    for (const [gy, gx, c] of [
+      [0,2,'#aaddff'],[0,3,'#aaddff'],
+      [1,0,'#aaddff'],[1,2,'#ffffff'],[1,3,'#ffffff'],[1,5,'#aaddff'],
+      [2,1,'#aaddff'],[2,2,'#88ccff'],[2,3,'#88ccff'],[2,4,'#aaddff'],
+      [3,1,'#aaddff'],[3,2,'#88ccff'],[3,3,'#88ccff'],[3,4,'#aaddff'],
+      [4,0,'#aaddff'],[4,2,'#ffffff'],[4,3,'#ffffff'],[4,5,'#aaddff'],
+      [5,2,'#aaddff'],[5,3,'#aaddff'],
+    ]) { ctx.fillStyle = c; ctx.fillRect(fx+gx*P, fy+gy*P, P, P); }
   }
 }
 
@@ -908,20 +1180,25 @@ function drawHUD() {
 
   // Score
   ctx.textAlign = 'right';
-  ctx.font = 'bold 20px Arial';
   ctx.fillStyle = 'white';
-  ctx.shadowColor = '#000'; ctx.shadowBlur = 5;
-  ctx.fillText('Score: ' + gs.score, canvas.width - 14, 30);
+  ctx.font = '10px "Press Start 2P"';
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+  ctx.fillText('Poäng', canvas.width - 14, 22);
+  ctx.font = 'bold 18px "Press Start 2P"';
+  ctx.fillStyle = 'white';
+  ctx.shadowBlur = 6;
+  ctx.fillText(gs.score, canvas.width - 14, 48);
   ctx.shadowBlur = 0;
 
-  // Phase
-  ctx.textAlign = 'center';
-  ctx.font = '14px Arial';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.fillText('Phase ' + gs.phase, canvas.width/2, 22);
-
-  // Special cooldown — pixel art flame bar (Style C)
-  drawFlameBar(10, canvas.height - 30, 1 - blob.specialCD / blob.specialMax);
+  // Special cooldown bar — flame or ice depending on active power
+  const barFill = gs.icePower
+    ? Math.max(0, (gs.icePowerEnd - performance.now()) / 10000)
+    : 1 - blob.specialCD / blob.specialMax;
+  if (gs.icePower) {
+    drawIceBar(10, canvas.height - 30, barFill);
+  } else {
+    drawFlameBar(10, canvas.height - 30, barFill);
+  }
 }
 
 // ── FLAME BAR (special cooldown, Style C) ────────────────────────────────────
@@ -1109,6 +1386,20 @@ function update() {
   updateParticles();
   updateHeartAnims();
   updateFireballExplosions();
+  updateIceExplosions();
+  updateGifts();
+
+  // Ice power timer
+  if (gs.icePower && performance.now() >= gs.icePowerEnd) {
+    gs.icePower = false;
+    blob.specialCD = 60; // 1-second refill after ice power ends
+  }
+
+  // Gift spawn milestone
+  if (!gs.gifts.some(g => !g.dead) && gs.score >= gs.nextGiftScore) {
+    gs.nextGiftScore += 400;
+    spawnGift();
+  }
 
   gs.spawnTimer++;
   if (gs.spawnTimer >= gs.spawnRate) {
@@ -1121,6 +1412,8 @@ function draw() {
   drawBackground();
   drawParticles();
   drawFireballExplosions();
+  drawIceExplosions();
+  drawGifts();
   drawEnemies();
   drawFireballs();
   drawBlob();
