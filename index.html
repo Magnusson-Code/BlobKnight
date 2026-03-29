@@ -175,6 +175,22 @@ const snd = (() => {
     heart()       { [262,330,392,523].forEach((f,i) => later(() => tone(f, f, 0.11, 0.22), i*75)); },
     gift()        { [330,440,554,659,880].forEach((f,i) => later(() => tone(f, f*1.04, 0.09, 0.26), i*55)); },
     iceActivate() { [1000,1300,800,1600,600,2000].forEach((f,i) => later(() => tone(f, f*1.6, 0.11, 0.16, 'sine'), i*45)); },
+    bigFirework() {
+      // Rising rocket whoosh
+      tone(160, 1000, 0.38, 0.10, 'sawtooth');
+      // Explosion boom
+      later(() => noise(0.55, 0.28), 360);
+      // Sparkle cascade
+      [880,1100,660,1320,990,770,1540,550].forEach((f,i) =>
+        later(() => tone(f, f*0.45, 0.18, 0.07, 'square'), 380 + i*85));
+    },
+    smallFirework() {
+      // Pop
+      noise(0.20, 0.16);
+      // Short sparkles
+      [700, 1000, 850].forEach((f,i) =>
+        later(() => tone(f, f*0.55, 0.13, 0.055, 'square'), i*70));
+    },
   };
 })();
 
@@ -445,6 +461,10 @@ function resetState() {
     icePower:       false,
     icePowerEnd:    0,
     startTime:      performance.now(),
+    goParticles:    [],
+    goFwInit:       false,
+    isNewTop1:      false,
+    isTopScore:     false,
   };
 }
 
@@ -1759,6 +1779,14 @@ function drawGameOver() {
   ctx.fillStyle = 'rgba(0,0,0,0.84)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Firework particles (drawn between overlay and text)
+  for (const p of gs.goParticles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.col;
+    ctx.fillRect(Math.round(p.x), Math.round(p.y), p.sz, p.sz);
+  }
+  ctx.globalAlpha = 1;
+
   ctx.textAlign = 'center';
 
   // Title
@@ -1777,9 +1805,21 @@ function drawGameOver() {
   ctx.fillText('Rekord: ' + fmtScore(highScore), canvas.width / 2, 98);
 
   // New record
-  if (gs.score > 0 && gs.score >= highScore) {
-    ctx.font = '9px "Press Start 2P"'; ctx.fillStyle = '#ff44ff';
-    ctx.fillText('NYTT REKORD!', canvas.width / 2, 118);
+  if (gs.isNewTop1) {
+    const pulse = 1 + 0.08 * Math.sin(performance.now() * 0.005);
+    ctx.save();
+    ctx.translate(canvas.width / 2, 118);
+    ctx.scale(pulse, pulse);
+    ctx.font = '10px "Press Start 2P"'; ctx.fillStyle = '#ff44ff';
+    ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 14;
+    ctx.fillText('★ NYTT REKORD! ★', 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  } else if (gs.isTopScore) {
+    ctx.font = '9px "Press Start 2P"'; ctx.fillStyle = '#44ffdd';
+    ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 8;
+    ctx.fillText('NY TOPPPLACERING!', canvas.width / 2, 118);
+    ctx.shadowBlur = 0;
   }
 
   // Scoreboard header
@@ -1834,6 +1874,51 @@ function rectsOverlap(x1,y1,w1,h1, x2,y2,w2,h2) {
   return x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2;
 }
 
+// ── GAME OVER FIREWORKS (Style A – Starburst) ────────────────────────────────
+const FW_COLORS = ['#ff4444','#ff8800','#ffdd00','#44ff88','#44ccff','#cc44ff','#ffffff','#ffaaaa'];
+
+function goFwBurst(x, y, n, spd) {
+  for (let i = 0; i < n; i++) {
+    const ang = (Math.PI * 2 * i / n) + Math.random() * 0.5;
+    const s   = spd * (0.5 + Math.random());
+    gs.goParticles.push({
+      x, y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s,
+      life: 1, decay: 0.011 + Math.random() * 0.009,
+      col: FW_COLORS[i % FW_COLORS.length], sz: Math.random() > 0.6 ? 4 : 3,
+    });
+  }
+}
+
+function triggerBigFireworks() {
+  const W = canvas.width, H = canvas.height;
+  const spots = [
+    [W*.18,H*.18],[W*.5,H*.12],[W*.82,H*.18],
+    [W*.12,H*.45],[W*.88,H*.42],[W*.35,H*.32],[W*.66,H*.28],
+  ];
+  spots.forEach(([x, y], i) => setTimeout(() => goFwBurst(x, y, 26, 4.5), i * 130));
+  snd.bigFirework();
+}
+
+function triggerSmallFireworks() {
+  const W = canvas.width, H = canvas.height;
+  setTimeout(() => goFwBurst(W * .38, H * .28, 14, 2.5), 0);
+  setTimeout(() => goFwBurst(W * .64, H * .24, 14, 2.5), 200);
+  snd.smallFirework();
+}
+
+function updateGameOverFX() {
+  if (gs.state !== 'gameover') return;
+  if (!gs.goFwInit) {
+    gs.goFwInit = true;
+    if (gs.isNewTop1)       triggerBigFireworks();
+    else if (gs.isTopScore) triggerSmallFireworks();
+  }
+  for (const p of gs.goParticles) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.07; p.vx *= 0.98; p.life -= p.decay;
+  }
+  gs.goParticles = gs.goParticles.filter(p => p.life > 0);
+}
+
 function endGame() {
   gs.state = 'gameover';
   hasPlayed = true;
@@ -1842,8 +1927,13 @@ function endGame() {
     highScore = gs.score;
     localStorage.setItem('blobKnightHS', highScore);
   }
+  // Determine placement vs current cached scoreboard
+  gs.isNewTop1  = gs.score > 0 && (scoreCache.length === 0 || gs.score > scoreCache[0].score);
+  gs.isTopScore = gs.score > 0 && (gs.isNewTop1 || scoreCache.length < 20 ||
+                  gs.score > scoreCache[scoreCache.length - 1].score);
+  gs.goFwInit   = false;
   saveScore(playerName, gs.score);
-  loadScores(); // refresh scoreboard shown on game over screen
+  loadScores();
 }
 
 function newPlayer() {
@@ -1946,6 +2036,7 @@ function draw() {
 
 function loop() {
   update();
+  updateGameOverFX();
   draw();
   requestAnimationFrame(loop);
 }
