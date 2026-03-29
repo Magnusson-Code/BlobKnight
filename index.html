@@ -317,7 +317,7 @@ document.addEventListener('keydown', e => {
     if (e.code === 'Enter') {
       if (gs.state === 'nameentry') submitName();
       else if (gs.state === 'startscreen') startGame();
-      else if (gs.state === 'fullscoreboard') gs.state = 'startscreen';
+      else if (gs.state === 'fullscoreboard') gs.state = scoreBoardFrom;
       else if (gs.state === 'gameover') restartGame();
       e.preventDefault();
     }
@@ -347,7 +347,7 @@ function handleTap(mx, my) {
     // Visa alla button
     const vx = canvas.width / 2 - 80, vy = 290, vw = 160, vh = 30;
     if (mx >= vx && mx <= vx + vw && my >= vy && my <= vy + vh) {
-      gs.state = 'fullscoreboard'; return;
+      scoreBoardFrom = 'startscreen'; gs.state = 'fullscoreboard'; return;
     }
     // Spela button
     const sx = canvas.width / 2 - 120, sy = 334, sw = 240, sh = 50;
@@ -360,13 +360,18 @@ function handleTap(mx, my) {
     // Tillbaka button
     const bx = canvas.width / 2 - 110, by = canvas.height - 60, bw = 220, bh = 40;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
-      gs.state = 'startscreen'; return;
+      gs.state = scoreBoardFrom; return;
     }
     return;
   }
   if (gs.state === 'gameover') {
-    const ph = 268, panelY = canvas.height / 2 - ph / 2;
-    const bx = canvas.width / 2 - 110, by = panelY + 192, bw = 220, bh = 46;
+    // Visa alla button
+    const vx = canvas.width / 2 - 80, vy = 284, vw = 160, vh = 30;
+    if (mx >= vx && mx <= vx + vw && my >= vy && my <= vy + vh) {
+      scoreBoardFrom = 'gameover'; gs.state = 'fullscoreboard'; return;
+    }
+    // Spela igen button
+    const bx = canvas.width / 2 - 120, by = 328, bw = 240, bh = 46;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) restartGame();
     return;
   }
@@ -426,6 +431,7 @@ let highScore = parseInt(localStorage.getItem('blobKnightHS') || '0');
 let playerName = '';
 let scoreCache = [];       // top-20 from Firestore, fetched on demand
 let scoresLoading = false;
+let scoreBoardFrom = 'startscreen'; // tracks where "Tillbaka" should return to
 const nameInputEl = document.getElementById('nameInput');
 
 function fmtScore(n) {
@@ -1718,40 +1724,76 @@ function drawFullScoreboard() {
 
 // ── GAME OVER ─────────────────────────────────────────────────────────────────
 function drawGameOver() {
-  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  // Full-screen dark overlay over frozen game scene
+  ctx.fillStyle = 'rgba(0,0,0,0.84)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const pw = 420, ph = 268;
-  const px = canvas.width/2 - pw/2, py = canvas.height/2 - ph/2;
-  ctx.fillStyle   = '#110820';
-  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 3;
-  ctx.fillRect(px, py, pw, ph);
-  ctx.strokeRect(px, py, pw, ph);
-
   ctx.textAlign = 'center';
-  ctx.font = 'bold 54px Arial';
+
+  // Title
+  ctx.font = '26px "Press Start 2P"';
   ctx.fillStyle = '#ff4455';
   ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 18;
-  ctx.fillText('GAME OVER', canvas.width/2, py+64);
+  ctx.fillText('GAME OVER', canvas.width / 2, 48);
   ctx.shadowBlur = 0;
 
-  ctx.font = '14px "Press Start 2P"'; ctx.fillStyle = 'white';
-  ctx.fillText('Poäng: ' + gs.score, canvas.width/2, py+108);
+  // Score
+  ctx.font = '11px "Press Start 2P"'; ctx.fillStyle = 'white';
+  ctx.fillText('Poäng: ' + fmtScore(gs.score), canvas.width / 2, 76);
 
-  ctx.font = '12px "Press Start 2P"'; ctx.fillStyle = '#FFD700';
-  ctx.fillText('Rekord: ' + highScore, canvas.width/2, py+140);
+  // Rekord
+  ctx.font = '9px "Press Start 2P"'; ctx.fillStyle = '#FFD700';
+  ctx.fillText('Rekord: ' + fmtScore(highScore), canvas.width / 2, 98);
 
+  // New record
   if (gs.score > 0 && gs.score >= highScore) {
-    ctx.font = '12px "Press Start 2P"'; ctx.fillStyle = '#ff44ff';
-    ctx.fillText('NYTT REKORD!', canvas.width/2, py+166);
+    ctx.font = '9px "Press Start 2P"'; ctx.fillStyle = '#ff44ff';
+    ctx.fillText('NYTT REKORD!', canvas.width / 2, 118);
   }
 
-  // Button
-  const bx = canvas.width/2 - 110, by = py+192, bw = 220, bh = 46;
+  // Scoreboard header
+  ctx.font = '8px "Press Start 2P"'; ctx.fillStyle = '#FFD700';
+  ctx.fillText('── BÄSTA RESULTAT ──', canvas.width / 2, 140);
+
+  // Top 5
+  const top5 = scoreCache.slice(0, 5);
+  if (scoresLoading) {
+    ctx.font = '8px "Press Start 2P"'; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Laddar...', canvas.width / 2, 175);
+  } else if (top5.length === 0) {
+    ctx.font = '8px "Press Start 2P"'; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Inga resultat ännu', canvas.width / 2, 175);
+  } else {
+    const medals = ['#FFD700', '#C0C0C0', '#CD7F32', 'white', 'white'];
+    for (let i = 0; i < top5.length; i++) {
+      const e = top5[i];
+      const y = 162 + i * 24;
+      ctx.font = '9px "Press Start 2P"';
+      ctx.fillStyle = medals[i];
+      ctx.textAlign = 'left';
+      ctx.fillText('#' + (i + 1) + '  ' + (e.name || '?'), 60, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(fmtScore(e.score), canvas.width - 60, y);
+    }
+  }
+
+  ctx.textAlign = 'center';
+
+  // "Visa alla" button
+  const vx = canvas.width / 2 - 80, vy = 284, vw = 160, vh = 30;
+  ctx.fillStyle = '#22334d';
+  ctx.fillRect(vx, vy, vw, vh);
+  ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
+  ctx.strokeRect(vx, vy, vw, vh);
+  ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88bbdd';
+  ctx.fillText('VISA ALLA →', canvas.width / 2, vy + 20);
+
+  // "Spela igen" button
+  const bx = canvas.width / 2 - 120, by = 328, bw = 240, bh = 46;
   ctx.fillStyle = '#4ecb71';
   ctx.fillRect(bx, by, bw, bh);
   ctx.font = '13px "Press Start 2P"'; ctx.fillStyle = '#0a200f';
-  ctx.fillText('Spela igen', canvas.width/2, by+30);
+  ctx.fillText('SPELA IGEN', canvas.width / 2, by + 30);
 
   ctx.textAlign = 'left';
 }
@@ -1769,6 +1811,7 @@ function endGame() {
     localStorage.setItem('blobKnightHS', highScore);
   }
   saveScore(playerName, gs.score);
+  loadScores(); // refresh scoreboard shown on game over screen
 }
 
 function restartGame() {
