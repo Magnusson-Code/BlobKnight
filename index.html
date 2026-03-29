@@ -29,21 +29,30 @@
   #nameInput {
     position: fixed;
     left: 50%;
-    top: 54%;
+    top: 36%;
     transform: translate(-50%, 0);
     background: #110820;
     border: 3px solid #aa44ff;
     color: white;
     font-family: 'Press Start 2P', monospace;
-    font-size: 14px;
+    font-size: 16px;
     text-align: center;
-    padding: 12px 16px;
-    width: min(280px, 72vw);
+    padding: 16px 22px;
+    width: min(340px, 82vw);
     outline: none;
     letter-spacing: 3px;
     caret-color: #cc88ff;
     display: none;
     z-index: 10;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+  @media (pointer: coarse) {
+    #nameInput { font-size: 20px; padding: 18px 24px; }
+  }
+  @media (max-height: 480px) {
+    /* Landscape on phone – input even higher */
+    #nameInput { top: 28%; }
   }
 </style>
 <script>
@@ -337,7 +346,7 @@ function canvasCoords(clientX, clientY) {
 function handleTap(mx, my) {
   if (gs.state === 'nameentry') {
     // Fortsätt button
-    const bx = canvas.width / 2 - 110, by = 252, bw = 220, bh = 44;
+    const bx = canvas.width / 2 - 110, by = 330, bw = 220, bh = 44;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       submitName();
     }
@@ -1565,26 +1574,14 @@ function drawNameEntry() {
   // Instruction
   ctx.font = '9px "Press Start 2P"';
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.fillText('ANGE DITT NAMN', canvas.width / 2, 158);
+  ctx.fillText('ANGE DITT NAMN', canvas.width / 2, 148);
 
-  // Input box (decorative – actual HTML input floats here)
-  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 2;
-  ctx.strokeRect(canvas.width / 2 - 140, 175, 280, 44);
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillStyle = 'rgba(170,68,255,0.6)';
+  ctx.fillText('max 10 tecken', canvas.width / 2, 168);
 
-  // Name preview inside box
-  ctx.font = '14px "Press Start 2P"';
-  ctx.fillStyle = 'white';
-  ctx.fillText(playerName, canvas.width / 2, 203);
-
-  // Cursor blink
-  if (Math.floor(performance.now() / 500) % 2 === 0) {
-    const tw = ctx.measureText(playerName).width;
-    ctx.fillStyle = '#cc88ff';
-    ctx.fillRect(canvas.width / 2 + tw / 2 + 2, 189, 2, 18);
-  }
-
-  // Continue button
-  const bx = canvas.width / 2 - 110, by = 252, bw = 220, bh = 44;
+  // Continue button – placed low so it never overlaps the HTML input
+  const bx = canvas.width / 2 - 110, by = 330, bw = 220, bh = 44;
   const canContinue = playerName.trim().length > 0;
   ctx.fillStyle = canContinue ? '#4ecb71' : '#336644';
   ctx.fillRect(bx, by, bw, bh);
