@@ -353,10 +353,24 @@ function handleTap(mx, my) {
     return;
   }
   if (gs.state === 'startscreen') {
-    // Visa alla button
-    const vx = canvas.width / 2 - 80, vy = 290, vw = 160, vh = 30;
-    if (mx >= vx && mx <= vx + vw && my >= vy && my <= vy + vh) {
-      scoreBoardFrom = 'startscreen'; gs.state = 'fullscoreboard'; return;
+    const vy = 290, vh = 30;
+    if (hasPlayed) {
+      // Visa alla (left)
+      const vx1 = canvas.width / 2 - 158;
+      if (mx >= vx1 && mx <= vx1 + 150 && my >= vy && my <= vy + vh) {
+        scoreBoardFrom = 'startscreen'; gs.state = 'fullscoreboard'; return;
+      }
+      // Ny Spelare (right)
+      const vx2 = canvas.width / 2 + 8;
+      if (mx >= vx2 && mx <= vx2 + 150 && my >= vy && my <= vy + vh) {
+        newPlayer(); return;
+      }
+    } else {
+      // Visa alla (centered)
+      const vx = canvas.width / 2 - 80;
+      if (mx >= vx && mx <= vx + 160 && my >= vy && my <= vy + vh) {
+        scoreBoardFrom = 'startscreen'; gs.state = 'fullscoreboard'; return;
+      }
     }
     // Spela button
     const sx = canvas.width / 2 - 120, sy = 334, sw = 240, sh = 50;
@@ -441,6 +455,7 @@ let playerName = '';
 let scoreCache = [];       // top-20 from Firestore, fetched on demand
 let scoresLoading = false;
 let scoreBoardFrom = 'startscreen'; // tracks where "Tillbaka" should return to
+let hasPlayed = false;              // true after first completed game
 const nameInputEl = document.getElementById('nameInput');
 
 function fmtScore(n) {
@@ -1641,15 +1656,34 @@ function drawStartScreen() {
 
   ctx.textAlign = 'center';
 
-  // "Visa alla" button
-  const vx = canvas.width / 2 - 80, vy = 290, vw = 160, vh = 30;
-  ctx.fillStyle = '#22334d';
-  ctx.fillRect(vx, vy, vw, vh);
-  ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
-  ctx.strokeRect(vx, vy, vw, vh);
-  ctx.font = '7px "Press Start 2P"';
-  ctx.fillStyle = '#88bbdd';
-  ctx.fillText('VISA ALLA →', canvas.width / 2, vy + 20);
+  // Small buttons row: "Visa alla" + optional "Ny Spelare"
+  const vy = 290, vh = 30;
+  if (hasPlayed) {
+    // Two buttons side by side
+    const vx1 = canvas.width / 2 - 158, vx2 = canvas.width / 2 + 8, vw2 = 150;
+    ctx.fillStyle = '#22334d';
+    ctx.fillRect(vx1, vy, 150, vh);
+    ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
+    ctx.strokeRect(vx1, vy, 150, vh);
+    ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88bbdd';
+    ctx.fillText('VISA ALLA →', vx1 + 75, vy + 20);
+
+    ctx.fillStyle = '#2d1a44';
+    ctx.fillRect(vx2, vy, vw2, vh);
+    ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1;
+    ctx.strokeRect(vx2, vy, vw2, vh);
+    ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#cc88ff';
+    ctx.fillText('NY SPELARE', vx2 + 75, vy + 20);
+  } else {
+    // Only "Visa alla" centered
+    const vx = canvas.width / 2 - 80;
+    ctx.fillStyle = '#22334d';
+    ctx.fillRect(vx, vy, 160, vh);
+    ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
+    ctx.strokeRect(vx, vy, 160, vh);
+    ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88bbdd';
+    ctx.fillText('VISA ALLA →', canvas.width / 2, vy + 20);
+  }
 
   // "Spela" button
   const sx = canvas.width / 2 - 120, sy = 334, sw = 240, sh = 50;
@@ -1657,7 +1691,7 @@ function drawStartScreen() {
   ctx.fillRect(sx, sy, sw, sh);
   ctx.font = '16px "Press Start 2P"';
   ctx.fillStyle = '#0a200f';
-  ctx.fillText('▶  SPELA', canvas.width / 2, sy + 33);
+  ctx.fillText('SPELA', canvas.width / 2, sy + 33);
 
   ctx.textAlign = 'left';
 }
@@ -1790,7 +1824,7 @@ function drawGameOver() {
   ctx.fillStyle = '#4ecb71';
   ctx.fillRect(bx, by, bw, bh);
   ctx.font = '13px "Press Start 2P"'; ctx.fillStyle = '#0a200f';
-  ctx.fillText('SPELA IGEN', canvas.width / 2, by + 30);
+  ctx.fillText(hasPlayed ? 'FORTSÄTT' : 'SPELA IGEN', canvas.width / 2, by + 30);
 
   ctx.textAlign = 'left';
 }
@@ -1802,6 +1836,7 @@ function rectsOverlap(x1,y1,w1,h1, x2,y2,w2,h2) {
 
 function endGame() {
   gs.state = 'gameover';
+  hasPlayed = true;
   bgm.stop();
   if (gs.score > highScore) {
     highScore = gs.score;
@@ -1809,6 +1844,14 @@ function endGame() {
   }
   saveScore(playerName, gs.score);
   loadScores(); // refresh scoreboard shown on game over screen
+}
+
+function newPlayer() {
+  playerName = '';
+  nameInputEl.value = '';
+  gs.state = 'nameentry';
+  nameInputEl.style.display = 'block';
+  setTimeout(() => nameInputEl.focus(), 50);
 }
 
 function restartGame() {
