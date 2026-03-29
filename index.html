@@ -472,7 +472,7 @@ let highScore = parseInt(localStorage.getItem('blobKnightHS') || '0');
 
 // ── PLAYER & SCOREBOARD ───────────────────────────────────────────────────────
 let playerName = '';
-let scoreCache = [];       // top-20 from Firestore, fetched on demand
+let scoreCache = [];       // top-10 from Firestore, fetched on demand
 let scoresLoading = false;
 let scoreBoardFrom = 'startscreen'; // tracks where "Tillbaka" should return to
 let hasPlayed = false;              // true after first completed game
@@ -487,7 +487,7 @@ function loadScores() {
   scoreCache = [];
   db.collection('scores')
     .orderBy('score', 'desc')
-    .limit(20)
+    .limit(10)
     .get()
     .then(snap => {
       scoreCache = snap.docs.map(d => d.data());
@@ -1686,7 +1686,7 @@ function drawStartScreen() {
     ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
     ctx.strokeRect(vx1, vy, 150, vh);
     ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88bbdd';
-    ctx.fillText('VISA ALLA →', vx1 + 75, vy + 20);
+    ctx.fillText('TOPP 10 →', vx1 + 75, vy + 20);
 
     ctx.fillStyle = '#2d1a44';
     ctx.fillRect(vx2, vy, vw2, vh);
@@ -1702,7 +1702,7 @@ function drawStartScreen() {
     ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
     ctx.strokeRect(vx, vy, 160, vh);
     ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88bbdd';
-    ctx.fillText('VISA ALLA →', canvas.width / 2, vy + 20);
+    ctx.fillText('TOPP 10 →', canvas.width / 2, vy + 20);
   }
 
   // "Spela" button
@@ -1726,7 +1726,7 @@ function drawFullScoreboard() {
   ctx.font = '14px "Press Start 2P"';
   ctx.fillStyle = '#FFD700';
   ctx.shadowColor = '#aa8800'; ctx.shadowBlur = 12;
-  ctx.fillText('TOPP 20', canvas.width / 2, 45);
+  ctx.fillText('TOPP 10', canvas.width / 2, 45);
   ctx.shadowBlur = 0;
 
   // Rows
@@ -1739,22 +1739,17 @@ function drawFullScoreboard() {
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.fillText('Inga resultat ännu', canvas.width / 2, 120);
   } else {
-    const cols = [[], []];
+    const lx = canvas.width / 2 - 270, rx = canvas.width / 2 + 270;
+    const medals = ['#FFD700','#C0C0C0','#CD7F32'];
     for (let i = 0; i < scoreCache.length; i++) {
-      cols[i < 10 ? 0 : 1].push({ rank: i + 1, ...scoreCache[i] });
-    }
-    const colX = [canvas.width / 2 - 200, canvas.width / 2 + 10];
-    for (let c = 0; c < 2; c++) {
-      for (let r = 0; r < cols[c].length; r++) {
-        const e = cols[c][r];
-        const y = 72 + r * 33;
-        ctx.font = '8px "Press Start 2P"';
-        ctx.fillStyle = e.rank === 1 ? '#FFD700' : e.rank === 2 ? '#C0C0C0' : e.rank === 3 ? '#CD7F32' : 'rgba(255,255,255,0.75)';
-        ctx.textAlign = 'left';
-        ctx.fillText('#' + e.rank + ' ' + (e.name || '?'), colX[c], y);
-        ctx.textAlign = 'right';
-        ctx.fillText(fmtScore(e.score), colX[c] + 370, y);
-      }
+      const e = scoreCache[i];
+      const y = 72 + i * 32;
+      ctx.font = '8px "Press Start 2P"';
+      ctx.fillStyle = i < 3 ? medals[i] : 'rgba(255,255,255,0.75)';
+      ctx.textAlign = 'left';
+      ctx.fillText('#' + (i + 1) + '  ' + (e.name || '?'), lx, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(fmtScore(e.score), rx, y);
     }
   }
 
@@ -1857,7 +1852,7 @@ function drawGameOver() {
   ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
   ctx.strokeRect(vx, vy, vw, vh);
   ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88bbdd';
-  ctx.fillText('VISA ALLA →', canvas.width / 2, vy + 20);
+  ctx.fillText('TOPP 10 →', canvas.width / 2, vy + 20);
 
   // "Spela igen" button
   const bx = canvas.width / 2 - 120, by = 328, bw = 240, bh = 46;
@@ -1929,7 +1924,7 @@ function endGame() {
   }
   // Determine placement vs current cached scoreboard
   gs.isNewTop1  = gs.score > 0 && (scoreCache.length === 0 || gs.score > scoreCache[0].score);
-  gs.isTopScore = gs.score > 0 && (gs.isNewTop1 || scoreCache.length < 20 ||
+  gs.isTopScore = gs.score > 0 && (gs.isNewTop1 || scoreCache.length < 10 ||
                   gs.score > scoreCache[scoreCache.length - 1].score);
   gs.goFwInit   = false;
   saveScore(playerName, gs.score);
