@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <title>Blob Knight</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -24,6 +26,25 @@
     max-height: 100dvh;
   }
   #controls { color:#888; font-size:13px; margin-top:6px; text-align:center; flex-shrink:0; }
+  #nameInput {
+    position: fixed;
+    left: 50%;
+    top: 54%;
+    transform: translate(-50%, 0);
+    background: #110820;
+    border: 3px solid #aa44ff;
+    color: white;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    text-align: center;
+    padding: 12px 16px;
+    width: min(280px, 72vw);
+    outline: none;
+    letter-spacing: 3px;
+    caret-color: #cc88ff;
+    display: none;
+    z-index: 10;
+  }
 </style>
 <script>
   // Set --ch = available height (minus controls bar when visible)
@@ -40,6 +61,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<input id="nameInput" type="text" maxlength="10" placeholder="DITT NAMN" autocomplete="off" autocorrect="off" spellcheck="false">
 <div id="controls"></div>
 <script>
   (function() {
@@ -48,6 +70,18 @@
       ? 'Tryck på skärmen: Svärd  |  Tryck på mätaren: Eldboll'
       : 'Mellanslag: Svärd  |  Shift: Eldboll  |  Enter: Spela igen';
   })();
+</script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBA62tFq5SLJobzTfPLskbUTSgnRn8YuWM",
+    authDomain: "blobknight.firebaseapp.com",
+    projectId: "blobknight",
+    storageBucket: "blobknight.firebasestorage.app",
+    messagingSenderId: "218956454798",
+    appId: "1:218956454798:web:35baabc854314df714a2df"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 </script>
 <script>
 'use strict';
@@ -281,7 +315,10 @@ document.addEventListener('keydown', e => {
     if (e.code === 'Space')                           { spaceJustPressed = true; e.preventDefault(); }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { shiftJustPressed = true; e.preventDefault(); }
     if (e.code === 'Enter') {
-      if (gs.state === 'gameover') restartGame();
+      if (gs.state === 'nameentry') submitName();
+      else if (gs.state === 'startscreen') startGame();
+      else if (gs.state === 'fullscoreboard') gs.state = 'startscreen';
+      else if (gs.state === 'gameover') restartGame();
       e.preventDefault();
     }
   }
@@ -298,14 +335,42 @@ function canvasCoords(clientX, clientY) {
 }
 
 function handleTap(mx, my) {
-  if (gs.state === 'gameover') {
-    const ph = 260, panelY = canvas.height/2 - ph/2;
-    const bx = canvas.width/2 - 100, by = panelY + 195;
-    if (mx >= bx && mx <= bx+200 && my >= by && my <= by+44) restartGame();
+  if (gs.state === 'nameentry') {
+    // Fortsätt button
+    const bx = canvas.width / 2 - 110, by = 252, bw = 220, bh = 44;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+      submitName();
+    }
     return;
   }
-  // Flame bar touch region (generous tap target)
-  // drawFlameBar(10, canvas.height-30, ...) → border at x=8, w=84, plus flame tip above
+  if (gs.state === 'startscreen') {
+    // Visa alla button
+    const vx = canvas.width / 2 - 80, vy = 290, vw = 160, vh = 30;
+    if (mx >= vx && mx <= vx + vw && my >= vy && my <= vy + vh) {
+      gs.state = 'fullscoreboard'; return;
+    }
+    // Spela button
+    const sx = canvas.width / 2 - 120, sy = 334, sw = 240, sh = 50;
+    if (mx >= sx && mx <= sx + sw && my >= sy && my <= sy + sh) {
+      startGame(); return;
+    }
+    return;
+  }
+  if (gs.state === 'fullscoreboard') {
+    // Tillbaka button
+    const bx = canvas.width / 2 - 110, by = canvas.height - 60, bw = 220, bh = 40;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+      gs.state = 'startscreen'; return;
+    }
+    return;
+  }
+  if (gs.state === 'gameover') {
+    const ph = 268, panelY = canvas.height / 2 - ph / 2;
+    const bx = canvas.width / 2 - 110, by = panelY + 192, bw = 220, bh = 46;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) restartGame();
+    return;
+  }
+  // Playing state
   if (mx >= 0 && mx <= 110 && my >= canvas.height - 64) {
     shiftJustPressed = true;
   } else {
@@ -356,6 +421,39 @@ function resetState() {
 }
 
 let highScore = parseInt(localStorage.getItem('blobKnightHS') || '0');
+
+// ── PLAYER & SCOREBOARD ───────────────────────────────────────────────────────
+let playerName = '';
+let scoreCache = [];       // top-20 from Firestore, fetched on demand
+let scoresLoading = false;
+const nameInputEl = document.getElementById('nameInput');
+
+function fmtScore(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009');
+}
+
+function loadScores() {
+  scoresLoading = true;
+  scoreCache = [];
+  db.collection('scores')
+    .orderBy('score', 'desc')
+    .limit(20)
+    .get()
+    .then(snap => {
+      scoreCache = snap.docs.map(d => d.data());
+      scoresLoading = false;
+    })
+    .catch(err => { console.error('Score load:', err); scoresLoading = false; });
+}
+
+function saveScore(name, score) {
+  if (!name || score <= 0) return;
+  db.collection('scores').add({
+    name: name,
+    score: score,
+    ts: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(err => console.error('Score save:', err));
+}
 
 // ── BLOB ─────────────────────────────────────────────────────────────────────
 let blob = {};
@@ -1432,6 +1530,192 @@ function drawPixelHeart(c, cx, cy, S, filled) {
   }
 }
 
+// ── SCREEN BACKGROUNDS ────────────────────────────────────────────────────────
+function drawMenuBG() {
+  ctx.fillStyle = '#aaddff'; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.55);
+  ctx.fillStyle = '#cceeff'; ctx.fillRect(0, canvas.height * 0.55, canvas.width, canvas.height * 0.25);
+  ctx.fillStyle = '#bbffee'; ctx.fillRect(0, canvas.height * 0.8,  canvas.width, canvas.height * 0.2);
+  // Ground strip
+  ctx.fillStyle = '#99dd66'; ctx.fillRect(0, canvas.height - 52, canvas.width, 52);
+  ctx.fillStyle = '#77bb44'; ctx.fillRect(0, canvas.height - 52, canvas.width, 8);
+  // Dim overlay
+  ctx.fillStyle = 'rgba(10,8,28,0.80)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────────
+function drawNameEntry() {
+  drawMenuBG();
+
+  ctx.textAlign = 'center';
+
+  // Title
+  ctx.font = '28px "Press Start 2P"';
+  ctx.fillStyle = '#cc77ff';
+  ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 22;
+  ctx.fillText('BLOB KNIGHT', canvas.width / 2, 90);
+  ctx.shadowBlur = 0;
+
+  // Instruction
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillText('ANGE DITT NAMN', canvas.width / 2, 158);
+
+  // Input box (decorative – actual HTML input floats here)
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 2;
+  ctx.strokeRect(canvas.width / 2 - 140, 175, 280, 44);
+
+  // Name preview inside box
+  ctx.font = '14px "Press Start 2P"';
+  ctx.fillStyle = 'white';
+  ctx.fillText(playerName, canvas.width / 2, 203);
+
+  // Cursor blink
+  if (Math.floor(performance.now() / 500) % 2 === 0) {
+    const tw = ctx.measureText(playerName).width;
+    ctx.fillStyle = '#cc88ff';
+    ctx.fillRect(canvas.width / 2 + tw / 2 + 2, 189, 2, 18);
+  }
+
+  // Continue button
+  const bx = canvas.width / 2 - 110, by = 252, bw = 220, bh = 44;
+  const canContinue = playerName.trim().length > 0;
+  ctx.fillStyle = canContinue ? '#4ecb71' : '#336644';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.font = '11px "Press Start 2P"';
+  ctx.fillStyle = canContinue ? '#0a200f' : '#224433';
+  ctx.fillText('FORTSÄTT', canvas.width / 2, by + 29);
+
+  ctx.textAlign = 'left';
+}
+
+// ── START SCREEN ──────────────────────────────────────────────────────────────
+function drawStartScreen() {
+  drawMenuBG();
+
+  ctx.textAlign = 'center';
+
+  // Title
+  ctx.font = '28px "Press Start 2P"';
+  ctx.fillStyle = '#cc77ff';
+  ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 22;
+  ctx.fillText('BLOB KNIGHT', canvas.width / 2, 65);
+  ctx.shadowBlur = 0;
+
+  // Player greeting
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText('Hej, ' + playerName + '!', canvas.width / 2, 92);
+
+  // Scoreboard header
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillStyle = '#FFD700';
+  ctx.fillText('── BÄSTA RESULTAT ──', canvas.width / 2, 122);
+
+  // Score rows (top 5)
+  const top5 = scoreCache.slice(0, 5);
+  if (scoresLoading) {
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Laddar...', canvas.width / 2, 165);
+  } else if (top5.length === 0) {
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Inga resultat ännu', canvas.width / 2, 165);
+  } else {
+    const medals = ['#FFD700', '#C0C0C0', '#CD7F32', 'white', 'white'];
+    for (let i = 0; i < top5.length; i++) {
+      const e = top5[i];
+      const y = 148 + i * 26;
+      ctx.font = '9px "Press Start 2P"';
+      ctx.fillStyle = medals[i];
+      ctx.textAlign = 'left';
+      ctx.fillText('#' + (i + 1) + '  ' + (e.name || '?'), 60, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(fmtScore(e.score), canvas.width - 60, y);
+    }
+  }
+
+  ctx.textAlign = 'center';
+
+  // "Visa alla" button
+  const vx = canvas.width / 2 - 80, vy = 290, vw = 160, vh = 30;
+  ctx.fillStyle = '#22334d';
+  ctx.fillRect(vx, vy, vw, vh);
+  ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
+  ctx.strokeRect(vx, vy, vw, vh);
+  ctx.font = '7px "Press Start 2P"';
+  ctx.fillStyle = '#88bbdd';
+  ctx.fillText('VISA ALLA →', canvas.width / 2, vy + 20);
+
+  // "Spela" button
+  const sx = canvas.width / 2 - 120, sy = 334, sw = 240, sh = 50;
+  ctx.fillStyle = '#4ecb71';
+  ctx.fillRect(sx, sy, sw, sh);
+  ctx.font = '16px "Press Start 2P"';
+  ctx.fillStyle = '#0a200f';
+  ctx.fillText('▶  SPELA', canvas.width / 2, sy + 33);
+
+  ctx.textAlign = 'left';
+}
+
+// ── FULL SCOREBOARD ───────────────────────────────────────────────────────────
+function drawFullScoreboard() {
+  drawMenuBG();
+
+  ctx.textAlign = 'center';
+
+  // Header
+  ctx.font = '14px "Press Start 2P"';
+  ctx.fillStyle = '#FFD700';
+  ctx.shadowColor = '#aa8800'; ctx.shadowBlur = 12;
+  ctx.fillText('TOPP 20', canvas.width / 2, 45);
+  ctx.shadowBlur = 0;
+
+  // Rows
+  if (scoresLoading) {
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Laddar...', canvas.width / 2, 120);
+  } else if (scoreCache.length === 0) {
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Inga resultat ännu', canvas.width / 2, 120);
+  } else {
+    const cols = [[], []];
+    for (let i = 0; i < scoreCache.length; i++) {
+      cols[i < 10 ? 0 : 1].push({ rank: i + 1, ...scoreCache[i] });
+    }
+    const colX = [canvas.width / 2 - 200, canvas.width / 2 + 10];
+    for (let c = 0; c < 2; c++) {
+      for (let r = 0; r < cols[c].length; r++) {
+        const e = cols[c][r];
+        const y = 72 + r * 33;
+        ctx.font = '8px "Press Start 2P"';
+        ctx.fillStyle = e.rank === 1 ? '#FFD700' : e.rank === 2 ? '#C0C0C0' : e.rank === 3 ? '#CD7F32' : 'rgba(255,255,255,0.75)';
+        ctx.textAlign = 'left';
+        ctx.fillText('#' + e.rank + ' ' + (e.name || '?'), colX[c], y);
+        ctx.textAlign = 'right';
+        ctx.fillText(fmtScore(e.score), colX[c] + 370, y);
+      }
+    }
+  }
+
+  ctx.textAlign = 'center';
+
+  // Back button
+  const bx = canvas.width / 2 - 110, by = canvas.height - 60, bw = 220, bh = 40;
+  ctx.fillStyle = '#334';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.font = '10px "Press Start 2P"';
+  ctx.fillStyle = '#cc88ff';
+  ctx.fillText('← TILLBAKA', canvas.width / 2, by + 26);
+
+  ctx.textAlign = 'left';
+}
+
 // ── GAME OVER ─────────────────────────────────────────────────────────────────
 function drawGameOver() {
   ctx.fillStyle = 'rgba(0,0,0,0.72)';
@@ -1451,29 +1735,23 @@ function drawGameOver() {
   ctx.fillText('GAME OVER', canvas.width/2, py+64);
   ctx.shadowBlur = 0;
 
-  ctx.font = 'bold 22px Arial'; ctx.fillStyle = 'white';
+  ctx.font = '14px "Press Start 2P"'; ctx.fillStyle = 'white';
   ctx.fillText('Poäng: ' + gs.score, canvas.width/2, py+108);
 
-  ctx.font = 'bold 19px Arial'; ctx.fillStyle = '#FFD700';
+  ctx.font = '12px "Press Start 2P"'; ctx.fillStyle = '#FFD700';
   ctx.fillText('Rekord: ' + highScore, canvas.width/2, py+140);
 
   if (gs.score > 0 && gs.score >= highScore) {
-    ctx.font = 'bold 15px Arial'; ctx.fillStyle = '#ff44ff';
-    ctx.fillText('NYTT REKORD!', canvas.width/2, py+165);
+    ctx.font = '12px "Press Start 2P"'; ctx.fillStyle = '#ff44ff';
+    ctx.fillText('NYTT REKORD!', canvas.width/2, py+166);
   }
 
   // Button
-  const bx = canvas.width/2 - 100, by = py+195, bw = 200, bh = 44;
+  const bx = canvas.width/2 - 110, by = py+192, bw = 220, bh = 46;
   ctx.fillStyle = '#4ecb71';
-  ctx.beginPath();
-  ctx.moveTo(bx+10, by); ctx.lineTo(bx+bw-10, by);
-  ctx.quadraticCurveTo(bx+bw, by, bx+bw, by+10);
-  ctx.lineTo(bx+bw, by+bh-10); ctx.quadraticCurveTo(bx+bw, by+bh, bx+bw-10, by+bh);
-  ctx.lineTo(bx+10, by+bh);    ctx.quadraticCurveTo(bx, by+bh, bx, by+bh-10);
-  ctx.lineTo(bx, by+10);       ctx.quadraticCurveTo(bx, by, bx+10, by);
-  ctx.closePath(); ctx.fill();
-  ctx.font = 'bold 21px Arial'; ctx.fillStyle = '#0a200f';
-  ctx.fillText('Spela igen', canvas.width/2, by+29);
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.font = '13px "Press Start 2P"'; ctx.fillStyle = '#0a200f';
+  ctx.fillText('Spela igen', canvas.width/2, by+30);
 
   ctx.textAlign = 'left';
 }
@@ -1490,13 +1768,29 @@ function endGame() {
     highScore = gs.score;
     localStorage.setItem('blobKnightHS', highScore);
   }
+  saveScore(playerName, gs.score);
 }
 
 function restartGame() {
+  loadScores();
+  gs.state = 'startscreen';
+}
+
+function startGame() {
   resetState();
   resetBlob();
   spaceJustPressed = false;
   shiftJustPressed = false;
+}
+
+function submitName() {
+  const n = playerName.trim();
+  if (!n) return;
+  playerName = n;
+  nameInputEl.style.display = 'none';
+  nameInputEl.blur();
+  loadScores();
+  gs.state = 'startscreen';
 }
 
 // ── DIFFICULTY ────────────────────────────────────────────────────────────────
@@ -1550,6 +1844,10 @@ function update() {
 }
 
 function draw() {
+  if (gs.state === 'nameentry')     { drawNameEntry();     return; }
+  if (gs.state === 'startscreen')   { drawStartScreen();   return; }
+  if (gs.state === 'fullscoreboard'){ drawFullScoreboard(); return; }
+
   drawBackground();
   drawParticles();
   drawFireballExplosions();
@@ -1631,8 +1929,19 @@ function loop() {
   document.head.appendChild(link);
 })();
 
-resetState();
-resetBlob();
+// Wire up HTML name input
+nameInputEl.addEventListener('input', () => {
+  playerName = nameInputEl.value.toUpperCase().slice(0, 10);
+  nameInputEl.value = playerName;
+});
+nameInputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitName(); }
+});
+
+// Start on name entry screen
+gs = { state: 'nameentry' };
+nameInputEl.style.display = 'block';
+nameInputEl.focus();
 loop();
 </script>
 </body>
