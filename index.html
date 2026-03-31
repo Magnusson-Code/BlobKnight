@@ -164,6 +164,7 @@ const snd = (() => {
   }
   function later(fn, ms) { setTimeout(fn, ms); }
   return {
+    jump()        { tone(220, 440, 0.07, 0.18, 'square'); later(() => tone(330, 660, 0.06, 0.13, 'square'), 65); },
     swing()       { noise(0.07, 0.1); tone(280, 140, 0.08, 0.12); },
     hit()         { tone(220, 110, 0.09, 0.22); },
     die()         { tone(300, 80, 0.22, 0.26); noise(0.18, 0.09); },
@@ -336,11 +337,13 @@ const bgm = (() => {
 const keys = {};
 let spaceJustPressed = false;
 let shiftJustPressed = false;
+let ctrlJustPressed  = false;
 
 document.addEventListener('keydown', e => {
   if (!keys[e.code]) {
-    if (e.code === 'Space')                           { spaceJustPressed = true; e.preventDefault(); }
+    if (e.code === 'Space')                                { spaceJustPressed = true; e.preventDefault(); }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { shiftJustPressed = true; e.preventDefault(); }
+    if (e.code === 'ControlLeft' || e.code === 'ControlRight') { ctrlJustPressed = true; e.preventDefault(); }
     if (e.code === 'Enter') {
       if (gs.state === 'nameentry') submitName();
       else if (gs.state === 'startscreen') startGame();
@@ -429,10 +432,23 @@ canvas.addEventListener('click', e => {
   handleTap(mx, my);
 });
 
+let _touchStartClientY = 0;
+
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
+  _touchStartClientY = e.touches[0].clientY;
   const [mx, my] = canvasCoords(e.touches[0].clientX, e.touches[0].clientY);
   handleTap(mx, my);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (gs.state !== 'playing') return;
+  const dy = e.touches[0].clientY - _touchStartClientY;
+  if (dy < -35) {
+    ctrlJustPressed = true;
+    _touchStartClientY = e.touches[0].clientY; // reset so it only fires once per swipe
+  }
 }, { passive: false });
 
 // ── GAME STATE ───────────────────────────────────────────────────────────────
@@ -519,6 +535,7 @@ function resetBlob() {
     bobOff: 0, bobDir: 1,
     attacking: false, atkTimer: 0, atkAngle: 0,
     specialCD: 0, specialMax: 300,   // 5 s @ 60 fps
+    jumping: false, vy: 0, groundY: 310,
   };
 }
 
@@ -551,6 +568,24 @@ function updateBlob() {
     shiftJustPressed = false;
   }
   shiftJustPressed = false;
+
+  // Jump
+  if (ctrlJustPressed && !blob.jumping) {
+    blob.jumping = true;
+    blob.vy = -10;
+    blob.bobOff = 0; // freeze bob during jump
+    snd.jump();
+  }
+  ctrlJustPressed = false;
+  if (blob.jumping) {
+    blob.y  += blob.vy;
+    blob.vy += 0.45;
+    if (blob.y >= blob.groundY) {
+      blob.y      = blob.groundY;
+      blob.vy     = 0;
+      blob.jumping = false;
+    }
+  }
 
   // Invincibility blink
   if (blob.invincible) {
@@ -738,11 +773,18 @@ function updateEnemies() {
 
     // Collision with blob
     if (!blob.invincible) {
-      if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
-                       e.x-e.hw, e.y-e.hh, e.hw*2, e.hh*2)) {
-        blobHurt();
-        e.dead  = true;
-        e.deathT = 18;
+      // Goblins can be jumped over – skip when blob is clearly airborne
+      if (e.type === 'goblin' && blob.jumping && blob.y < blob.groundY - 15) {
+        // no collision
+      } else {
+        // Giants have a tall extended hitbox so they can't be jumped over
+        const topExt = e.type === 'giant' ? 55 : 0;
+        if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                         e.x-e.hw, e.y-e.hh-topExt, e.hw*2, e.hh*2+topExt)) {
+          blobHurt();
+          e.dead   = true;
+          e.deathT = 18;
+        }
       }
     }
     if (e.x < -120) gs.enemies.splice(i, 1);
@@ -1202,9 +1244,19 @@ function drawBlob() {
   if (!blob.visible) return;
   const wx = blob.x - 7*P, wy = blob.y + blob.bobOff - 6*P; // top-left of sprite grid
 
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx.fillRect(wx + 2*P, wy + 11*P, 10*P, 2*P);
+  // Shadow – follows ground when jumping
+  if (blob.jumping) {
+    const groundWY = blob.groundY - 6*P; // ground-level wy
+    const lift = blob.groundY - blob.y;
+    const scale = Math.max(0.3, 1 - lift / 130);
+    const sw = Math.round(10*P * scale), sh = Math.round(2*P * scale);
+    const sx = blob.x - sw/2, sy = groundWY + 11*P + Math.round(P * (1-scale));
+    ctx.fillStyle = `rgba(0,0,0,${0.18 * scale})`;
+    ctx.fillRect(sx, sy, sw, sh);
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(wx + 2*P, wy + 11*P, 10*P, 2*P);
+  }
 
   const O = '#1a3a1a'; // outline
   const G = '#55bb55'; // body green
@@ -1951,6 +2003,7 @@ function startGame() {
   resetBlob();
   spaceJustPressed = false;
   shiftJustPressed = false;
+  ctrlJustPressed  = false;
 }
 
 function submitName() {
