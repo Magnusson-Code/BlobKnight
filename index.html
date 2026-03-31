@@ -716,7 +716,7 @@ function damageEnemy(e, dmg, source) {
         t: 0, maxT: 70,
       });
     } else {
-      gs.score += e.type === 'goblin' ? 10 : 30;
+      gs.distance += e.type === 'goblin' ? 120 : 360; // bonus via distance keeps ticker flowing
       if (e.type === 'giant' && gs.phase === 1) gs.phase = 2;
     }
   }
