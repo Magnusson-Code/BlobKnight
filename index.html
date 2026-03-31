@@ -24,6 +24,8 @@
     width:  min(100vw, calc(var(--ch) * 800 / 420));
     height: auto;
     max-height: 100dvh;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges; /* Firefox fallback */
   }
   #controls { color:#888; font-size:13px; margin-top:6px; text-align:center; flex-shrink:0; }
   #nameInput {
