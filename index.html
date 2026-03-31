@@ -2030,12 +2030,11 @@ function draw() {
 }
 
 // Fixed timestep – runs game logic at exactly 60 steps/s regardless of display Hz
-const STEP_MS   = 1000 / 60;   // 16.667 ms per logic step
-let   _lastTime = 0;
+const STEP_MS   = 1000 / 60;          // 16.667 ms per logic step
+let   _lastTime = performance.now();  // initialised before first loop call
 let   _accum    = 0;
 
-function loop(timestamp) {
-  if (!_lastTime) _lastTime = timestamp;
+function loop(timestamp = performance.now()) {
   const elapsed = Math.min(timestamp - _lastTime, 50); // cap at 50 ms (tab hidden etc.)
   _lastTime  = timestamp;
   _accum    += elapsed;
