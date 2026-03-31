@@ -2029,9 +2029,23 @@ function draw() {
   if (gs.state === 'gameover') drawGameOver();
 }
 
-function loop() {
-  update();
-  updateGameOverFX();
+// Fixed timestep – runs game logic at exactly 60 steps/s regardless of display Hz
+const STEP_MS   = 1000 / 60;   // 16.667 ms per logic step
+let   _lastTime = 0;
+let   _accum    = 0;
+
+function loop(timestamp) {
+  if (!_lastTime) _lastTime = timestamp;
+  const elapsed = Math.min(timestamp - _lastTime, 50); // cap at 50 ms (tab hidden etc.)
+  _lastTime  = timestamp;
+  _accum    += elapsed;
+
+  while (_accum >= STEP_MS) {
+    update();
+    updateGameOverFX();
+    _accum -= STEP_MS;
+  }
+
   draw();
   requestAnimationFrame(loop);
 }
