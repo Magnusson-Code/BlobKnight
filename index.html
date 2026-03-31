@@ -461,7 +461,7 @@ function resetState() {
     distance:    0,
     score:       0,
     phase:       1,
-    worldSpeed:  1.4,
+    worldSpeed:  1.8,
     spawnTimer:  0,
     spawnRate:   120,
     bgScroll:    0,
@@ -2024,10 +2024,10 @@ function submitName() {
 // ── DIFFICULTY ────────────────────────────────────────────────────────────────
 function updateDifficulty() {
   const t = (performance.now() - gs.startTime) / 1000; // real seconds elapsed
-  // Slow start (1.4), gradual ramp, then accelerates sharply after ~90s
-  gs.worldSpeed = 1.4 + Math.pow(Math.max(0, t - 5) * 0.008, 1.0) * t * 0.015 + (t > 90 ? (t - 90) * 0.04 : 0);
+  // Faster start (1.8), immediate ramp, sharper acceleration after 90s
+  gs.worldSpeed = 1.8 + t * 0.014 + (t > 90 ? (t - 90) * 0.05 : 0);
   gs.worldSpeed = Math.min(gs.worldSpeed, 8);
-  gs.spawnRate  = Math.max(45, 220 - t * 1.0);
+  gs.spawnRate  = Math.max(45, 160 - t * 1.2);
   if (t > 90) gs.phase = Math.max(gs.phase, 2);
   if (t > 240) gs.phase = Math.max(gs.phase, 3);
 }
