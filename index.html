@@ -474,8 +474,9 @@ function resetState() {
     fireballExplosions:  [],
     iceExplosions:       [],
     gifts:               [],
-    nextHeartScore: 500,
-    nextGiftScore:  200,
+    nextHeartScore:  500,
+    nextGiftScore:   200,
+    lastGiantFrame: -480, // allows a giant to spawn immediately when phase 2 starts
     icePower:       false,
     icePowerEnd:    0,
     startTime:      performance.now(),
@@ -704,8 +705,12 @@ function spawnEnemy() {
     return;
   }
 
-  const spawnGiant = gs.phase >= 2 && Math.random() < 0.25;
+  const GIANT_COOLDOWN = 480; // 8 seconds at 60 fps
+  const spawnGiant = gs.phase >= 2
+    && Math.random() < 0.25
+    && gs.frame - gs.lastGiantFrame >= GIANT_COOLDOWN;
   if (spawnGiant) {
+    gs.lastGiantFrame = gs.frame;
     gs.enemies.push({
       type:'giant', x:canvas.width+70, y:308,
       hw:35, hh:40,
