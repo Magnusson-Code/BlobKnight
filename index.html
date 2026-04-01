@@ -78,8 +78,8 @@
   (function() {
     const mobile = navigator.maxTouchPoints > 0;
     document.getElementById('controls').textContent = mobile
-      ? 'Tryck på skärmen: Svärd  |  Tryck på mätaren: Eldboll'
-      : 'Mellanslag: Svärd  |  Shift: Eldboll  |  Enter: Spela igen';
+      ? 'Tryck på skärmen: Svärd  |  Tryck på mätaren: Eldboll  |  Svep uppåt: Hoppa'
+      : 'Mellanslag: Svärd  |  Shift: Eldboll  |  Ctrl: Hoppa  |  Enter: Spela igen';
   })();
 </script>
 <script>
@@ -194,6 +194,8 @@ const snd = (() => {
       [700, 1000, 850].forEach((f,i) =>
         later(() => tone(f, f*0.55, 0.13, 0.055, 'square'), i*70));
     },
+    batDie()    { tone(600, 150, 0.15, 0.18, 'sawtooth'); later(() => noise(0.07, 0.08), 80); },
+    batShriek() { tone(900, 500, 0.10, 0.14, 'sawtooth'); later(() => tone(700, 400, 0.08, 0.10, 'sawtooth'), 50); },
   };
 })();
 
@@ -433,12 +435,26 @@ canvas.addEventListener('click', e => {
 });
 
 let _touchStartClientY = 0;
+let _touchStartClientX = 0;
+let _touchPending = false;
+let _touchPendingX = 0;
+let _touchPendingY = 0;
 
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
+  _touchStartClientX = e.touches[0].clientX;
   _touchStartClientY = e.touches[0].clientY;
-  const [mx, my] = canvasCoords(e.touches[0].clientX, e.touches[0].clientY);
-  handleTap(mx, my);
+  if (gs.state !== 'playing') {
+    // Menyvyer: trigga direkt så knappar svarar omedelbart
+    const [mx, my] = canvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+    handleTap(mx, my);
+  } else {
+    // Under spel: vänta på touchend innan vi vet om det är ett svep eller tapp
+    const [mx, my] = canvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+    _touchPending = true;
+    _touchPendingX = mx;
+    _touchPendingY = my;
+  }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
@@ -447,7 +463,15 @@ canvas.addEventListener('touchmove', e => {
   const dy = e.touches[0].clientY - _touchStartClientY;
   if (dy < -35) {
     ctrlJustPressed = true;
+    _touchPending = false; // det var ett svep – avbryt det väntande tappet
     _touchStartClientY = e.touches[0].clientY; // reset so it only fires once per swipe
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  if (_touchPending) {
+    _touchPending = false;
+    handleTap(_touchPendingX, _touchPendingY);
   }
 }, { passive: false });
 
@@ -477,6 +501,7 @@ function resetState() {
     nextHeartScore:  500,
     nextGiftScore:   200,
     lastGiantFrame: -480, // allows a giant to spawn immediately when phase 2 starts
+    lastBatFrame:   -360,
     icePower:       false,
     icePowerEnd:    0,
     startTime:      performance.now(),
@@ -742,7 +767,9 @@ function damageEnemy(e, dmg, source) {
       if (gs.icePower) { spawnIceExplosion(e.x, e.y, e.type); snd.iceExplode(); }
       else             { spawnFireballExplosion(e.x, e.y, e.type); snd.explode(); }
     } else {
-      if (e.type === 'giant') snd.giantDie(); else snd.die();
+      if (e.type === 'giant') snd.giantDie();
+      else if (e.type === 'bat') snd.batDie();
+      else snd.die();
     }
     if (e.isBlue) {
       // Extra life + floating heart animation
@@ -758,8 +785,57 @@ function damageEnemy(e, dmg, source) {
         t: 0, maxT: 70,
       });
     } else {
-      gs.distance += e.type === 'goblin' ? 120 : 360; // bonus via distance keeps ticker flowing
+      if (e.type === 'bat')        gs.distance += 240;         // 20 pts
+      else if (e.type === 'goblin') gs.distance += 120;
+      else                          gs.distance += 360;         // giant
       if (e.type === 'giant' && gs.phase === 1) gs.phase = 2;
+    }
+  }
+}
+
+// ── BAT MOVEMENT ──────────────────────────────────────────────────────────────
+function updateBatMovement(bat) {
+  if (bat.batState === 'flying') {
+    bat.x -= bat.speed;
+    bat.y = bat.baseY + Math.sin(bat.ft * 0.10) * 12;
+    // Attack trigger when bat is just ahead of blob
+    if (bat.x < blob.x + 210 && bat.x > blob.x - 40) {
+      bat.batState = 'attacking';
+      snd.batShriek();
+      if (blob.jumping) {
+        // Air attack: fast horizontal dash, slight vertical tracking
+        bat.attackMode = 'air';
+        bat.vx = -(bat.speed + 4);
+        bat.vy = (blob.y - bat.y) * 0.06;
+      } else {
+        // Ground dive: diagonal toward blob
+        bat.attackMode = 'ground';
+        const dx = blob.x - bat.x;
+        const dy = blob.y - bat.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const spd  = bat.speed + 5;
+        bat.vx = (dx / dist) * spd;
+        bat.vy = (dy / dist) * spd;
+      }
+    }
+    if (bat.x < -100) { bat.dead = true; bat.deathT = 1; } // flew past, remove silently
+  } else {
+    // Attacking: move on fixed trajectory
+    bat.x += bat.vx;
+    bat.y += bat.vy;
+    // Collision with blob
+    if (!blob.invincible) {
+      if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                       bat.x - bat.hw, bat.y - bat.hh, bat.hw*2, bat.hh*2)) {
+        blobHurt();
+        bat.dead   = true;
+        bat.deathT = 18;
+        return;
+      }
+    }
+    // Off-screen cleanup
+    if (bat.x < -80 || bat.y > canvas.height + 20 || bat.y < -50) {
+      bat.dead = true; bat.deathT = 1;
     }
   }
 }
@@ -767,6 +843,15 @@ function damageEnemy(e, dmg, source) {
 function updateEnemies() {
   for (let i = gs.enemies.length-1; i >= 0; i--) {
     const e = gs.enemies[i];
+
+    // ── Bat: fully custom update ──────────────────────────────────────────────
+    if (e.type === 'bat') {
+      e.ft++;
+      if (e.dead) { if (--e.deathT <= 0) gs.enemies.splice(i, 1); }
+      else         updateBatMovement(e);
+      continue;
+    }
+
     e.ft++;
     if (e.dead) {
       if (--e.deathT <= 0) gs.enemies.splice(i, 1);
@@ -1363,6 +1448,9 @@ function drawEnemies() {
 }
 
 function drawEnemy(e, flash) {
+  // Bat: uses absolute coordinates — draw directly and return
+  if (e.type === 'bat') { drawBat(e, flash); return; }
+
   // Pixel-aligned walk animation — integer pixel offsets only, no rotation
   const bobY = e.type === 'goblin'
     ? (Math.floor(e.ft / 7) % 2 === 0 ? 0 : -P)       // goblin: fast 2-frame hop
@@ -1486,6 +1574,83 @@ function drawGiant(hp, maxHp, flash) {
     ctx.fillStyle = Ar;
     ctx.fillRect(wx+3*P, wy+9*P, 12*P, P);
     ctx.fillRect(wx+2*P, wy+10*P, 14*P, P);
+  }
+}
+
+// ── DRAW BAT (Design C – Stor/Hotfull, 17 wide × 9 tall grid units) ──────────
+// Sprite ported from bat_preview.html drawC() at P=6 → P=4.
+// e.x/e.y = body centre. wx = left edge, wy = top reference row.
+function drawBat(e, flash) {
+  const up = Math.floor(e.ft / 9) % 2 === 0; // wings-up half of flap cycle
+  const ox  = 0;               // column origin (matching preview's ox=0)
+  const oy  = up ? 1 : 2;      // row origin: 1 when up, 2 when down
+  const wx  = Math.round(e.x) - 8 * P;   // left edge of 17-unit sprite
+  const wy  = Math.round(e.y) - 5 * P;   // top reference (oy row lands near body top)
+
+  const PU = flash ? '#ffffff' : '#7722bb'; // purple body
+  const PL = flash ? '#ccaaff' : '#aa55ee'; // light purple wings
+  const PS = flash ? '#aaaaaa' : '#4a1177'; // shadow
+  const BK = flash ? '#ffffff' : '#11002a'; // outline
+  const RD = flash ? '#ffffff' : '#ff2233'; // red eyes
+  const EH = flash ? '#ffffff' : '#ffaaaa'; // eye highlight / fangs
+
+  // Convenience: draw a horizontal run at absolute row gy (from wy), cols gx0..gx1
+  function row(gy, gx0, gx1, col) { prow(wx, wy, gy, gx0, gx1, col); }
+  function dot(gx, gy, col)        { px(wx, wy, gx, gy, col); }
+
+  // ── Wings ────────────────────────────────────────────────────────────────────
+  if (!up) {
+    // Wings sweep DOWN-outward (matching preview wings-down)
+    row(oy,   ox,    ox+2,  BK); row(oy,   ox+14, ox+16, BK);
+    row(oy+1, ox,    ox+3,  BK); row(oy+1, ox+13, ox+16, BK);
+    row(oy+2, ox,    ox+3,  BK); row(oy+2, ox+13, ox+16, BK);
+    row(oy+3, ox+1,  ox+3,  BK); row(oy+3, ox+13, ox+15, BK);
+    row(oy+4, ox+2,  ox+3,  BK); row(oy+4, ox+13, ox+14, BK);
+    // Wing fill (PL inside BK outline)
+    row(oy,   ox+1,  ox+2,  PL); row(oy,   ox+14, ox+15, PL);
+    row(oy+1, ox+1,  ox+3,  PL); row(oy+1, ox+13, ox+15, PL);
+    row(oy+2, ox+1,  ox+3,  PL); row(oy+2, ox+13, ox+15, PL);
+    row(oy+3, ox+2,  ox+3,  PL); row(oy+3, ox+13, ox+14, PL);
+  } else {
+    // Wings sweep UP-inward (matching preview wings-up)
+    row(oy-2, ox+3,  ox+5,  BK); row(oy-2, ox+11, ox+13, BK);
+    row(oy-1, ox+1,  ox+5,  BK); row(oy-1, ox+11, ox+15, BK);
+    row(oy,   ox,    ox+4,  BK); row(oy,   ox+12, ox+16, BK);
+    row(oy+1, ox,    ox+3,  BK); row(oy+1, ox+13, ox+16, BK);
+    // Wing fill
+    row(oy-2, ox+4,  ox+5,  PL); row(oy-2, ox+11, ox+12, PL);
+    row(oy-1, ox+2,  ox+5,  PL); row(oy-1, ox+11, ox+14, PL);
+    row(oy,   ox+1,  ox+4,  PL); row(oy,   ox+12, ox+15, PL);
+    row(oy+1, ox+1,  ox+3,  PL); row(oy+1, ox+13, ox+15, PL);
+  }
+
+  // ── Sharp ears ───────────────────────────────────────────────────────────────
+  dot(ox+6,  oy-1, BK); dot(ox+6,  oy, BK);
+  dot(ox+10, oy-1, BK); dot(ox+10, oy, BK);
+  dot(ox+6,  oy,   PU); dot(ox+10, oy, PU);
+
+  // ── Wide body (outline then fill) ────────────────────────────────────────────
+  row(oy+1, ox+5,  ox+11, BK);
+  row(oy+2, ox+4,  ox+12, BK);
+  row(oy+3, ox+4,  ox+12, BK);
+  row(oy+4, ox+4,  ox+12, BK);
+  row(oy+5, ox+5,  ox+11, BK);
+  row(oy+6, ox+6,  ox+10, BK);
+  // Fill – upper body PU, lower body PS (shadow)
+  row(oy+1, ox+6,  ox+10, PU);
+  row(oy+2, ox+5,  ox+11, PU);
+  row(oy+3, ox+5,  ox+11, PU);
+  row(oy+4, ox+5,  ox+11, PS);
+  row(oy+5, ox+6,  ox+10, PS);
+  row(oy+6, ox+7,  ox+9,  PS);
+
+  if (!flash) {
+    // Menacing red eyes (2 px wide each)
+    row(oy+2, ox+6,  ox+7,  RD); row(oy+2, ox+9,  ox+10, RD);
+    // Eye highlight (1 px, row below – gives a glint)
+    dot(ox+7, oy+3, EH); dot(ox+9, oy+3, EH);
+    // Fangs
+    dot(ox+7, oy+5, EH); dot(ox+9, oy+5, EH);
   }
 }
 
@@ -2068,6 +2233,23 @@ function update() {
   if (gs.spawnTimer >= gs.spawnRate) {
     spawnEnemy();
     gs.spawnTimer = 0;
+  }
+
+  // ── Bat spawn (independent of normal enemy timer, starts after 25 s) ─────────
+  const BAT_COOLDOWN = 360; // min 6 seconds between bats
+  const tSecNow = (performance.now() - gs.startTime) / 1000;
+  if (tSecNow > 25
+      && gs.frame - gs.lastBatFrame >= BAT_COOLDOWN
+      && Math.random() < 0.008) {
+    gs.lastBatFrame = gs.frame;
+    const baseY = 150 + Math.random() * 70; // fly at ~150-220 px from top
+    gs.enemies.push({
+      type: 'bat', x: canvas.width + 30, y: baseY, baseY,
+      hw: 24, hh: 16, hp: 1, maxHp: 1,
+      speed: 2.2 + Math.random() * 0.8 + (gs.phase - 1) * 0.3,
+      dead: false, deathT: 0, ft: 0,
+      batState: 'flying', attackMode: null, vx: 0, vy: 0,
+    });
   }
 }
 
