@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Snigelboss Preview – Runda 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d0b1e; color:white; font-family:'Press Start 2P',monospace; padding:30px 20px; }
+  h1  { color:#cc77ff; text-align:center; font-size:15px; text-shadow:0 0 18px #aa44ff; margin-bottom:6px; }
+  .sub { color:rgba(200,150,255,0.45); text-align:center; font-size:7px; margin-bottom:40px; }
+  h2  { color:#FFD700; font-size:9px; margin:40px 0 6px; text-align:center; letter-spacing:2px; }
+  .based { color:rgba(255,215,0,0.4); font-size:6px; text-align:center; margin-bottom:16px; }
+  .row { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
+  .card {
+    background:rgba(255,255,255,0.04); border:1px solid rgba(170,68,255,0.4);
+    padding:18px 18px 14px; text-align:center; min-width:180px;
+  }
+  .card h3 { font-size:8px; color:#cc88ff; margin-bottom:14px; }
+  .card p  { font-size:6px; color:rgba(255,255,255,0.4); margin-top:10px; line-height:1.8; }
+  .music-card {
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,215,0,0.3);
+    padding:18px; text-align:center; min-width:200px;
+  }
+  .music-card h3 { font-size:8px; color:#FFD700; margin-bottom:10px; }
+  .music-card p  { font-size:6px; color:rgba(255,255,255,0.4); margin-bottom:14px; line-height:1.8; }
+  button {
+    font-family:'Press Start 2P',monospace; font-size:7px;
+    background:#1a0a2e; border:1px solid #aa44ff; color:#cc88ff;
+    padding:8px 14px; cursor:pointer; margin:3px;
+  }
+  button:hover { background:#2d1a44; }
+  button.playing { background:#3a0a5e; border-color:#ff88ff; color:#ff88ff; }
+  .sfx-row { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+  .sfx-btn {
+    font-family:'Press Start 2P',monospace; font-size:7px;
+    background:#0a1a0a; border:1px solid #44cc44; color:#88ff88;
+    padding:10px 16px; cursor:pointer;
+  }
+  .sfx-btn:hover { background:#0a2a0a; }
+</style>
+</head>
+<body>
+
+<h1>SNIGELBOSS – NY PREVIEW</h1>
+<p class="sub">Runda 2 · Baserat på dina val · Välj A, B eller C i varje kategori</p>
+
+<!-- ═══════════════════════ STOR SNIGEL ═══════════════════════ -->
+<h2>① STOR SNIGEL</h2>
+<p class="based">Baserat på: A (Klassisk) · Större storlek (P=6) · 3 färgvarianter</p>
+<div class="row">
+  <div class="card"><h3>A) KLASSISK+</h3>
+    <canvas id="bigA" width="248" height="200"></canvas>
+    <p>Grön kropp · Brun spiral<br>Klassisk trädgårdskänsla</p></div>
+  <div class="card"><h3>B) SKOGSSNIGEL</h3>
+    <canvas id="bigB" width="248" height="200"></canvas>
+    <p>Mörkgrön kropp · Mörkbrun skal<br>Tyngre och mer hotfull</p></div>
+  <div class="card"><h3>C) SAVANNSNIGEL</h3>
+    <canvas id="bigC" width="248" height="200"></canvas>
+    <p>Gul-grön kropp · Gyllene skal<br>Exotisk och distinkt</p></div>
+</div>
+
+<!-- ═══════════════════════ MINISNIGEL ═══════════════════════ -->
+<h2>② MINISNIGEL</h2>
+<p class="based">Baserat på: A (Mini-kopia med skal) · 3 färgvarianter</p>
+<div class="row">
+  <div class="card"><h3>A) GRÖN KOPIA</h3>
+    <canvas id="miniA" width="160" height="120"></canvas>
+    <p>Klassisk grön · Brun skal</p></div>
+  <div class="card"><h3>B) TEAL KOPIA</h3>
+    <canvas id="miniB" width="160" height="120"></canvas>
+    <p>Blågrön kropp · Mörkbrun skal</p></div>
+  <div class="card"><h3>C) LIME KOPIA</h3>
+    <canvas id="miniC" width="160" height="120"></canvas>
+    <p>Limegrön kropp · Orangebrun skal</p></div>
+</div>
+
+<!-- ═══════════════════════ SLEMVÅG ═══════════════════════ -->
+<h2>③ SLEMVÅG</h2>
+<p class="based">Baserat på: B (Slimevåg, marknivå) · 3 höjd/formvarianter</p>
+<div class="row">
+  <div class="card"><h3>A) LÅG VÅG</h3>
+    <canvas id="slimeA" width="248" height="100"></canvas>
+    <p>Låg och bred · Lättast att hoppa</p></div>
+  <div class="card"><h3>B) BUMPY VÅG</h3>
+    <canvas id="slimeB" width="248" height="100"></canvas>
+    <p>Medelhög med knölar · Svårare</p></div>
+  <div class="card"><h3>C) HÖG VÅG</h3>
+    <canvas id="slimeC" width="248" height="100"></canvas>
+    <p>Hög och kompakt · Svårast</p></div>
+</div>
+
+<!-- ═══════════════════════ MUSIK ═══════════════════════ -->
+<h2>④ BOSSLÅT</h2>
+<p class="based">Baserat på: B (Battle, snabb och drivande) · 3 varianter på temat</p>
+<div class="row">
+  <div class="music-card">
+    <h3>A) BATTLE – HEROISK</h3>
+    <p>175 BPM · Dur-tonart<br>Stigande fanfar-känsla<br>Driven och positiv</p>
+    <button onclick="playMusic('A')" id="btnA">▶ SPELA A</button>
+    <button onclick="stopMusic()" style="border-color:#ff4444;color:#ff8888">■ STOPP</button>
+  </div>
+  <div class="music-card">
+    <h3>B) BATTLE – MÖRK</h3>
+    <p>175 BPM · Moll-tonart<br>Mörkare och ominös<br>Intensiv kamp-känsla</p>
+    <button onclick="playMusic('B')" id="btnB">▶ SPELA B</button>
+    <button onclick="stopMusic()" style="border-color:#ff4444;color:#ff8888">■ STOPP</button>
+  </div>
+  <div class="music-card">
+    <h3>C) BATTLE – OVERDRIVE</h3>
+    <p>185 BPM · Snabbast tempo<br>Aggressiv och kaotisk<br>Maximal intensitet</p>
+    <button onclick="playMusic('C')" id="btnC">▶ SPELA C</button>
+    <button onclick="stopMusic()" style="border-color:#ff4444;color:#ff8888">■ STOPP</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ LJUD ═══════════════════════ -->
+<h2>⑤ LJUDEFFEKTER</h2>
+<div class="sfx-row">
+  <button class="sfx-btn" onclick="sfxMiniSnail()">🐌 MINISNIGEL SPAWNAR</button>
+  <button class="sfx-btn" onclick="sfxSlimeThrow()">💚 SLEM KASTAS</button>
+  <button class="sfx-btn" onclick="sfxBossRoar()">💀 BOSS RYTER</button>
+  <button class="sfx-btn" onclick="sfxBossHit()">⚡ BOSS TRÄFFAS</button>
+  <button class="sfx-btn" onclick="sfxBossDie()">🎆 BOSS DÖR</button>
+</div>
+
+<br><br>
+
+<script>
+// ── AUDIO HELPERS ────────────────────────────────────────────────────────────
+let _ac = null;
+function ac() {
+  if (!_ac) _ac = new AudioContext();
+  if (_ac.state === 'suspended') _ac.resume();
+  return _ac;
+}
+function tone(f, f2, dur, vol, wave, delay) {
+  vol = vol||0.22; wave = wave||'square'; delay = delay||0;
+  try {
+    const c=ac(), t=c.currentTime+delay;
+    const o=c.createOscillator(), g=c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.type=wave; o.frequency.setValueAtTime(f,t);
+    if(f2) o.frequency.exponentialRampToValueAtTime(f2,t+dur);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    o.start(t); o.stop(t+dur);
+  } catch(e){}
+}
+function noise(dur, vol, delay) {
+  vol=vol||0.12; delay=delay||0;
+  try {
+    const c=ac(), t=c.currentTime+delay;
+    const n=Math.ceil(c.sampleRate*dur), buf=c.createBuffer(1,n,c.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
+    const src=c.createBufferSource(), g=c.createGain();
+    src.buffer=buf; src.connect(g); g.connect(c.destination);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    src.start(t); src.stop(t+dur);
+  } catch(e){}
+}
+
+// ── SFX ──────────────────────────────────────────────────────────────────────
+function sfxMiniSnail() {
+  tone(300,200,0.08,0.15,'sine');
+  tone(400,250,0.08,0.12,'sine',0.09);
+  tone(350,180,0.08,0.10,'sine',0.18);
+  noise(0.06,0.06);
+}
+function sfxSlimeThrow() {
+  tone(180,80,0.28,0.18,'sine');
+  noise(0.12,0.10);
+  tone(220,100,0.18,0.10,'triangle',0.08);
+}
+function sfxBossRoar() {
+  tone(80,40,0.55,0.32,'square');
+  noise(0.4,0.14);
+  tone(120,55,0.35,0.18,'square',0.2);
+}
+function sfxBossHit() {
+  tone(440,220,0.12,0.18,'square');
+  noise(0.08,0.10);
+}
+function sfxBossDie() {
+  tone(200,30,0.8,0.35,'sawtooth');
+  noise(0.6,0.22);
+  [440,550,660,330,220].forEach(function(f,i){ tone(f,f*0.4,0.15,0.08,'square',0.4+i*0.12); });
+}
+
+// ── MUSIK ────────────────────────────────────────────────────────────────────
+var musicGen=0, musicTimeout=null;
+function stopMusic() {
+  musicGen++;
+  clearTimeout(musicTimeout);
+  ['A','B','C'].forEach(function(x){
+    var b=document.getElementById('btn'+x); if(b) b.classList.remove('playing');
+  });
+}
+function playMusic(which) {
+  stopMusic();
+  var myGen=++musicGen;
+  document.getElementById('btn'+which).classList.add('playing');
+
+  var F={
+    A3:220,B3:247,C3:131,D3:147,E3:165,F3:175,G3:196,
+    A4:440,B4:494,C4:262,D4:294,E4:330,F4:349,G4:392,
+    A5:880,C5:523,D5:587,E5:659,G5:784,F5:698,B5:988,
+    Bb4:466,Bb3:233,Gs3:208,Fs3:185,Fs4:370,Ab3:207,
+    Cs4:277,Ds4:311,Gs4:415,Ab4:415,Eb5:622,Ab5:830,Bb5:932,
+    R:0
+  };
+  var R=0;
+
+  var TRACKS={
+    A:{ // Battle – Heroisk (dur, 175 BPM)
+      bpm:175,
+      mel:[[F.A5,.25],[F.C5,.25],[F.E5,.25],[F.A5,.25],
+           [F.G5,.25],[F.E5,.25],[F.D5,.25],[F.C5,.25],
+           [F.E5,.25],[F.G5,.25],[F.A5,.25],[F.G5,.25],
+           [F.E5,.5],[F.D5,.25],[F.C5,.25],
+           [F.D5,.25],[F.E5,.25],[F.G5,.25],[F.A5,.25],
+           [F.C5,.25],[F.E5,.25],[F.G5,.25],[F.A5,.25],
+           [F.G5,.5],[F.E5,.5],
+           [F.A4,.5],[F.A5,1]],
+      bas:[[F.A3,.5],[F.E3,.5],[F.A3,.5],[F.C4,.5],
+           [F.D3,.5],[F.A3,.5],[F.E3,.5],[F.G3,.5],
+           [F.A3,.5],[F.E3,.5],[F.A3,.5],[F.C4,.5],
+           [F.E3,.5],[F.Fs3,.5],[F.Gs3,.5],[F.A3,.5]],
+      per:[1,0,.5,0,1,0,.5,0,1,0,.5,0,1,.4,.5,.4],pb:.25
+    },
+    B:{ // Battle – Mörk (moll, 175 BPM)
+      bpm:175,
+      mel:[[F.A5,.25],[F.G5,.25],[F.F5,.25],[F.A5,.25],
+           [F.Eb5,.25],[F.F5,.25],[F.G5,.5],
+           [F.A5,.25],[F.G5,.25],[F.Eb5,.25],[F.F5,.25],
+           [F.G5,.5],[R,.5],
+           [F.A5,.25],[F.F5,.25],[F.Eb5,.25],[F.G5,.25],
+           [F.Ab5,.5],[F.G5,.25],[F.F5,.25],
+           [F.A5,.25],[F.Eb5,.25],[F.G5,.25],[F.A5,.25],
+           [F.F5,.5],[F.A5,.75],[R,.25]],
+      bas:[[F.A3,.5],[F.E3,.5],[F.F3,.5],[F.C4,.5],
+           [F.G3,.5],[F.D3,.5],[F.A3,.5],[F.E3,.5],
+           [F.Ab3,.5],[F.Gs3,.5],[F.F3,.5],[F.A3,.5],
+           [F.E3,.5],[F.G3,.5],[F.Gs3,.5],[F.A3,.5]],
+      per:[1,.3,.5,.3,1,.3,.5,.3,1,.3,.5,0,1,.4,.5,.4],pb:.25
+    },
+    C:{ // Battle – Overdrive (185 BPM, snabb)
+      bpm:185,
+      mel:[[F.A5,.125],[F.G5,.125],[F.A5,.125],[F.G5,.125],
+           [F.E5,.125],[F.G5,.125],[F.A5,.25],
+           [F.G5,.125],[F.A5,.125],[F.G5,.125],[F.E5,.125],
+           [F.D5,.125],[F.E5,.125],[F.G5,.25],
+           [F.A5,.125],[F.G5,.125],[F.A5,.125],[F.C5,.125],
+           [F.E5,.125],[F.A5,.125],[F.G5,.25],
+           [F.E5,.125],[F.G5,.125],[F.A5,.125],[F.E5,.125],
+           [F.A4,.25],[R,.25],[F.A5,.5]],
+      bas:[[F.A3,.25],[F.A3,.25],[F.E3,.25],[F.A3,.25],
+           [F.D3,.25],[F.A3,.25],[F.E3,.25],[F.G3,.25],
+           [F.A3,.25],[F.C4,.25],[F.A3,.25],[F.E3,.25],
+           [F.Fs3,.25],[F.Gs3,.25],[F.A3,.25],[F.E3,.25]],
+      per:[1,.5,1,.5,1,.5,1,.5,1,.5,1,.5,1,.5,1,.5],pb:.125
+    }
+  };
+
+  function noteOn(freq,dur,time,vol,wave) {
+    vol=vol||0.022; wave=wave||'square';
+    if(!freq||freq<20) return;
+    try {
+      var c=ac(),o=c.createOscillator(),g=c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type=wave; o.frequency.value=freq;
+      g.gain.setValueAtTime(vol,time); g.gain.setValueAtTime(vol,time+dur*0.8);
+      g.gain.exponentialRampToValueAtTime(0.001,time+dur*0.98);
+      o.start(time); o.stop(time+dur);
+    } catch(e){}
+  }
+  function bassOn(freq,dur,time) {
+    if(!freq||freq<20) return;
+    try {
+      var c=ac(),o=c.createOscillator(),g=c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type='triangle'; o.frequency.value=freq;
+      g.gain.setValueAtTime(0.016,time); g.gain.exponentialRampToValueAtTime(0.001,time+dur*0.9);
+      o.start(time); o.stop(time+dur);
+    } catch(e){}
+  }
+  function percOn(vol,time,dur) {
+    if(vol<0.05) return;
+    try {
+      var c=ac(),n=Math.ceil(c.sampleRate*dur),buf=c.createBuffer(1,n,c.sampleRate);
+      var d=buf.getChannelData(0); for(var i=0;i<n;i++) d[i]=Math.random()*2-1;
+      var src=c.createBufferSource(),g=c.createGain();
+      src.buffer=buf; src.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(vol*0.018,time); g.gain.exponentialRampToValueAtTime(0.001,time+dur*0.55);
+      src.start(time); src.stop(time+dur);
+    } catch(e){}
+  }
+
+  var tr=TRACKS[which], beat=60/tr.bpm;
+  var melDur=tr.mel.reduce(function(s,x){return s+x[1];},0)*beat;
+  var basDur=tr.bas.reduce(function(s,x){return s+x[1];},0)*beat;
+  var perDur=tr.per.length*tr.pb*beat;
+  var loopDur=Math.max(melDur,basDur,perDur);
+
+  function schedLoop(startAt) {
+    if(musicGen!==myGen) return;
+    var c=ac(), t=startAt;
+    for(var i=0;i<tr.mel.length;i++){noteOn(tr.mel[i][0],tr.mel[i][1]*beat*0.88,t);t+=tr.mel[i][1]*beat;}
+    t=startAt;
+    for(var i=0;i<tr.bas.length;i++){bassOn(tr.bas[i][0],tr.bas[i][1]*beat*0.85,t);t+=tr.bas[i][1]*beat;}
+    t=startAt;
+    for(var i=0;i<tr.per.length;i++){percOn(tr.per[i],t,tr.pb*beat*0.5);t+=tr.pb*beat;}
+    var next=startAt+loopDur;
+    musicTimeout=setTimeout(function(){schedLoop(next);},Math.max(0,(next-c.currentTime-0.05)*1000));
+  }
+  schedLoop(ac().currentTime+0.05);
+}
+
+// ── PIXEL ART HELPERS ────────────────────────────────────────────────────────
+function rw(ctx, y, x0, x1, col, P) {
+  ctx.fillStyle=col; ctx.fillRect(x0*P, y*P, (x1-x0+1)*P, P);
+}
+function px(ctx, x, y, col, P) {
+  ctx.fillStyle=col; ctx.fillRect(x*P, y*P, P, P);
+}
+
+// ── BIG SNAIL (P=6, based on Klassisk A) ─────────────────────────────────────
+var BIG_C = [
+  // A: Klassisk+ – grön kropp, brun spiral
+  {body:'#88aa44',bodyD:'#556633',foot:'#445522',
+   shell:'#cc9944',shellD:'#7a4a11',shellHL:'#ffe08a',
+   head:'#88aa44',headHL:'#aabb66',eye:'#ff2233',stalk:'#778833',mouth:'#334422'},
+  // B: Skogssnigel – mörkgrön kropp, mörkbrun skal
+  {body:'#557744',bodyD:'#334422',foot:'#223311',
+   shell:'#886622',shellD:'#553300',shellHL:'#bb9944',
+   head:'#557744',headHL:'#6a9955',eye:'#ff4444',stalk:'#446633',mouth:'#223322'},
+  // C: Savannsnigel – gul-grön kropp, gyllene skal
+  {body:'#aacc33',bodyD:'#778811',foot:'#556600',
+   shell:'#cc8822',shellD:'#774400',shellHL:'#ffdd55',
+   head:'#aacc33',headHL:'#ccdd55',eye:'#cc2222',stalk:'#889922',mouth:'#445511'}
+];
+
+function drawBigSnail(ctx, cx, cy, t, ci) {
+  var c=BIG_C[ci], P=6;
+  var bob=Math.round(Math.sin(t*0.06)*1.5);
+  var ox=Math.round(cx/P), oy=Math.round((cy+bob)/P);
+  var r=function(y,x0,x1,col){rw(ctx,y,x0,x1,col,P);};
+  var p=function(x,y,col){px(ctx,x,y,col,P);};
+
+  // FOOT
+  r(oy,   ox-10,ox+8, c.foot);
+  r(oy-1, ox-11,ox+9, c.body);
+  r(oy-2, ox-11,ox+9, c.body);
+  r(oy-3, ox-10,ox+8, c.body);
+  r(oy-4, ox-9, ox+7, c.headHL);
+
+  // HEAD
+  r(oy-5, ox-13,ox-7, c.head);
+  r(oy-6, ox-14,ox-6, c.head);
+  r(oy-7, ox-14,ox-6, c.headHL);
+  p(ox-14,oy-5, c.bodyD);
+
+  // EYE STALKS
+  r(oy-8,  ox-13,ox-13, c.stalk);
+  r(oy-9,  ox-13,ox-13, c.stalk);
+  r(oy-10, ox-13,ox-13, c.stalk);
+  r(oy-8,  ox-11,ox-11, c.stalk);
+  r(oy-9,  ox-11,ox-11, c.stalk);
+
+  // EYES
+  r(oy-11, ox-14,ox-12, c.eye);
+  r(oy-10, ox-14,ox-12, c.eye);
+  p(ox-13, oy-11, '#ffaaaa');
+  r(oy-10, ox-11,ox-10, c.eye);
+  r(oy-9,  ox-11,ox-10, c.eye);
+  p(ox-11, oy-10, '#ffaaaa');
+
+  // SHELL outer
+  r(oy-12, ox-2, ox+10, c.shellD);
+  r(oy-11, ox-4, ox+11, c.shell);
+  r(oy-10, ox-5, ox+11, c.shell);
+  r(oy-9,  ox-5, ox+11, c.shell);
+  r(oy-8,  ox-5, ox+11, c.shell);
+  r(oy-7,  ox-4, ox+11, c.shellD);
+  r(oy-6,  ox-3, ox+10, c.shellD);
+  r(oy-5,  ox-1, ox+9,  c.shellD);
+  // Shell highlight
+  r(oy-12, ox+1, ox+5,  c.shellHL);
+  r(oy-11, ox+1, ox+3,  c.shellHL);
+  // Spiral
+  r(oy-9,  ox+1, ox+5,  c.shellD);
+  r(oy-8,  ox+5, ox+8,  c.shellD);
+  r(oy-7,  ox+2, ox+6,  c.shellD);
+  p(ox+4,  oy-10, c.shellD);
+
+  // Mouth
+  p(ox-11, oy-5, c.mouth);
+  p(ox-10, oy-5, c.mouth);
+  p(ox-9,  oy-5, c.mouth);
+}
+
+// ── MINI SNAIL (P=4, based on A mini-kopia) ──────────────────────────────────
+var MINI_C = [
+  // A: Classic green
+  {body:'#88aa44',bodyD:'#556633',shell:'#cc9944',shellD:'#885522',shellHL:'#ffcc66',eye:'#ff2233'},
+  // B: Teal/blue-green
+  {body:'#448877',bodyD:'#225544',shell:'#775533',shellD:'#442211',shellHL:'#aa8844',eye:'#ff4444'},
+  // C: Lime/bright
+  {body:'#88dd33',bodyD:'#447711',shell:'#cc6622',shellD:'#883311',shellHL:'#ffbb44',eye:'#ff2200'}
+];
+
+function drawMiniSnail(ctx, cx, cy, t, ci) {
+  var c=MINI_C[ci], P=4;
+  var bob=Math.round(Math.sin(t*0.12)*1);
+  var ox=Math.round(cx/P), oy=Math.round((cy+bob)/P);
+  var r=function(y,x0,x1,col){rw(ctx,y,x0,x1,col,P);};
+  var p=function(x,y,col){px(ctx,x,y,col,P);};
+
+  // Foot
+  r(oy,   ox-5,ox+4, c.bodyD);
+  r(oy-1, ox-5,ox+4, c.body);
+  r(oy-2, ox-4,ox+3, c.body);
+  // Head
+  r(oy-3, ox-6,ox-3, c.body);
+  r(oy-4, ox-7,ox-3, c.body);
+  // Eye stalks + eyes
+  p(ox-6, oy-5, c.body);  p(ox-6, oy-6, c.eye);
+  p(ox-4, oy-5, c.body);  p(ox-4, oy-5, c.eye);
+  // Shell
+  r(oy-5, ox-1,ox+4, c.shell);
+  r(oy-4, ox-1,ox+4, c.shell);
+  r(oy-3, ox,  ox+4, c.shellD);
+  p(ox+1, oy-5, c.shellHL);
+  p(ox+2, oy-4, c.shellD);
+}
+
+// ── SLIME WAVE (P=4, based on B slimevåg) ────────────────────────────────────
+function drawSlimeWave(ctx, cx, cy, t, variant) {
+  var P=4;
+  var ox=Math.round(cx/P), oy=Math.round(cy/P);
+  var r=function(y,x0,x1,col){rw(ctx,y,x0,x1,col,P);};
+  var p=function(x,y,col){px(ctx,x,y,col,P);};
+
+  if (variant===0) {
+    // A: Low wave (1-3 tall), easy to jump
+    for (var i=-11;i<=11;i++) {
+      var h=Math.round(1+Math.abs(Math.sin((i*0.45)+t*0.12))*2);
+      ctx.fillStyle=i%2===0?'#44cc33':'#33aa22';
+      ctx.fillRect((ox+i)*P,(oy-h)*P,P,h*P);
+    }
+    r(oy-3, ox-5,ox-3, '#88ff66');
+    r(oy-2, ox+2,ox+4, '#88ff66');
+    r(oy,   ox-11,ox+11,'#226622');
+
+  } else if (variant===1) {
+    // B: Bumpy wave (3-5 tall) with knobs
+    for (var i=-10;i<=10;i++) {
+      var h=Math.round(3+Math.sin((i*0.4)+t*0.13)*2);
+      ctx.fillStyle=i%2===0?'#44cc33':'#33aa22';
+      ctx.fillRect((ox+i)*P,(oy-h)*P,P,h*P);
+    }
+    // Knobs on top
+    var knobX=[-7,-3,1,5,9];
+    for (var k=0;k<knobX.length;k++) {
+      var kx=ox+knobX[k];
+      var kh=Math.round(3+Math.sin((knobX[k]*0.4)+t*0.13)*2);
+      r(oy-kh-2, kx,kx, '#66ee44');
+      r(oy-kh-1, kx-1,kx+1, '#55cc33');
+    }
+    r(oy-5, ox-4,ox-2, '#88ff66');
+    r(oy-4, ox+3,ox+5, '#88ff66');
+    r(oy,   ox-10,ox+10,'#226622');
+
+  } else {
+    // C: Tall wave (5-8 tall), hard to jump
+    for (var i=-9;i<=9;i++) {
+      var h=Math.round(5+Math.sin((i*0.5)+t*0.14)*3);
+      ctx.fillStyle=i%3===0?'#33bb22':i%3===1?'#228811':'#44dd22';
+      ctx.fillRect((ox+i)*P,(oy-h)*P,P,h*P);
+    }
+    // Drip tips
+    for (var i=-9;i<=9;i+=2) {
+      var h=Math.round(5+Math.sin((i*0.5)+t*0.14)*3);
+      p(ox+i, oy-h-1, '#66ff44');
+    }
+    r(oy-7, ox-2,ox+2, '#aaffaa');
+    r(oy,   ox-9,ox+9, '#115511');
+  }
+}
+
+// ── ANIMATION LOOP ───────────────────────────────────────────────────────────
+var cvs={
+  bigA:document.getElementById('bigA'),
+  bigB:document.getElementById('bigB'),
+  bigC:document.getElementById('bigC'),
+  miniA:document.getElementById('miniA'),
+  miniB:document.getElementById('miniB'),
+  miniC:document.getElementById('miniC'),
+  slimeA:document.getElementById('slimeA'),
+  slimeB:document.getElementById('slimeB'),
+  slimeC:document.getElementById('slimeC')
+};
+var ctxs={};
+for(var k in cvs) ctxs[k]=cvs[k].getContext('2d');
+
+var frame=0;
+function animate() {
+  frame++;
+
+  for(var k in cvs) {
+    var c=ctxs[k], cv=cvs[k];
+    c.fillStyle='#0e1520'; c.fillRect(0,0,cv.width,cv.height);
+    var gy=k.startsWith('big')?180:k.startsWith('mini')?100:90;
+    c.fillStyle='#99dd66'; c.fillRect(0,gy,cv.width,4);
+    c.fillStyle='#77bb44'; c.fillRect(0,gy,cv.width,2);
+  }
+
+  // Big snails at P=6
+  drawBigSnail(ctxs.bigA, 124, 180, frame, 0);
+  drawBigSnail(ctxs.bigB, 124, 180, frame, 1);
+  drawBigSnail(ctxs.bigC, 124, 180, frame, 2);
+
+  // Mini snails at P=4
+  drawMiniSnail(ctxs.miniA, 80, 100, frame, 0);
+  drawMiniSnail(ctxs.miniB, 80, 100, frame, 1);
+  drawMiniSnail(ctxs.miniC, 80, 100, frame, 2);
+
+  // Slime waves
+  drawSlimeWave(ctxs.slimeA, 124, 88, frame, 0);
+  drawSlimeWave(ctxs.slimeB, 124, 88, frame, 1);
+  drawSlimeWave(ctxs.slimeC, 124, 82, frame, 2);
+
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>

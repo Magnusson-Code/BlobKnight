@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Kungsskorpion – Design Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#1a0d05; color:white; font-family:'Press Start 2P',monospace; padding:30px 20px; }
+  h1  { color:#ffaa44; text-align:center; font-size:15px; text-shadow:0 0 18px #aa5500; margin-bottom:6px; }
+  .sub { color:rgba(255,200,150,0.45); text-align:center; font-size:7px; margin-bottom:30px; }
+  h2  { color:#FFD700; font-size:9px; margin:40px 0 6px; text-align:center; letter-spacing:2px; }
+  .based { color:rgba(255,215,0,0.4); font-size:6px; text-align:center; margin-bottom:18px; }
+  .row { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; }
+  .card {
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,170,68,0.3);
+    padding:18px 18px 14px; text-align:center; min-width:200px;
+  }
+  .card h3 { font-size:8px; color:#ffcc66; margin-bottom:14px; }
+  .card p  { font-size:6px; color:rgba(255,255,255,0.45); margin-top:10px; line-height:1.9; }
+  .card.atk { border-color:rgba(255,80,40,0.4); }
+  .card.atk h3 { color:#ff8844; }
+  canvas {
+    display:block; margin:0 auto;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+  }
+</style>
+</head>
+<body>
+
+<h1>KUNGSSKORPION – PREVIEW</h1>
+<p class="sub">Fas 2-boss · Välj utseende A/B/C + se attack-effekter</p>
+
+<!-- ═══════════════ SCORPION VARIANTS ═══════════════ -->
+<h2>① UTSEENDE</h2>
+<p class="based">3 färgvarianter av samma skorpion-design</p>
+<div class="row">
+  <div class="card">
+    <h3>A) ÖKENSKORPION</h3>
+    <canvas id="scA" width="280" height="180"></canvas>
+    <p>Naturlig sandbrun · Bärnstensögon<br>Klassisk öken-look</p>
+  </div>
+  <div class="card">
+    <h3>B) PANSRAD KRIGARE</h3>
+    <canvas id="scB" width="280" height="180"></canvas>
+    <p>Mörkröd chitin · Pansarplåtar<br>Glödande röda ögon</p>
+  </div>
+  <div class="card">
+    <h3>C) GIFTVARIANT</h3>
+    <canvas id="scC" width="280" height="180"></canvas>
+    <p>Mörk slate · Toxisk grön glöd<br>Lysande gröna ögon</p>
+  </div>
+</div>
+
+<!-- ═══════════════ ATTACK EFFECTS ═══════════════ -->
+<h2>② ATTACK-EFFEKTER</h2>
+<p class="based">De 3 attackerna · använder Variant A som referens</p>
+<div class="row">
+  <div class="card atk">
+    <h3>🪨 GADDSLAG</h3>
+    <canvas id="atkTail" width="280" height="180"></canvas>
+    <p>Svansen reser sig högt → slår ned på marken<br><b>→ HOPPA över</b></p>
+  </div>
+  <div class="card atk">
+    <h3>✂️ PINCERSVEP</h3>
+    <canvas id="atkPincer" width="280" height="180"></canvas>
+    <p>Klorna sluts med energi i huvudhöjd<br><b>→ STÅ KVAR (hoppa EJ)</b></p>
+  </div>
+  <div class="card atk">
+    <h3>☢️ GIFTSPOTT</h3>
+    <canvas id="atkVenom" width="280" height="180"></canvas>
+    <p>Båg-projektil → giftpöl på marken<br><b>→ HOPPA över pölen</b></p>
+  </div>
+</div>
+
+<br><br>
+
+<script>
+const P = 6;
+
+// ─────────────── COLOR VARIANTS ───────────────
+const VARIANTS = {
+  A: { // Ökenskorpion (sand/brown)
+    bodyD:'#5a3008', body:'#cc8033', bodyHL:'#ee9944',
+    plate:'#7a4818', leg:'#7a4818',
+    pincer:'#a25522', pincerD:'#5a2a08',
+    tail:'#bb7733', tailD:'#7a4818',
+    stingerTip:'#cc2200', stingerD:'#660000',
+    eye:'#ffcc22', glow:null,
+  },
+  B: { // Pansrad krigare (dark red, armored)
+    bodyD:'#220000', body:'#8a2018', bodyHL:'#cc4422',
+    plate:'#110000', leg:'#330808',
+    pincer:'#660808', pincerD:'#220000',
+    tail:'#771010', tailD:'#220000',
+    stingerTip:'#ff4400', stingerD:'#aa0000',
+    eye:'#ff2200', glow:null,
+  },
+  C: { // Giftvariant (toxic dark/green)
+    bodyD:'#080820', body:'#2a2a3a', bodyHL:'#3a4a52',
+    plate:'#1a1a28', leg:'#1a1a28',
+    pincer:'#1f1f2f', pincerD:'#080820',
+    tail:'#1f2a2f', tailD:'#080820',
+    stingerTip:'#88ff44', stingerD:'#22aa22',
+    eye:'#44ee44', glow:'#22cc44',
+  },
+};
+
+// ─────────────── HELPERS ───────────────
+function rw(ctx,y,x0,x1,col,P) { ctx.fillStyle=col; ctx.fillRect(x0*P, y*P, (x1-x0+1)*P, P); }
+function px(ctx,x,y,col,P)     { ctx.fillStyle=col; ctx.fillRect(x*P, y*P, P, P); }
+
+// ─────────────── SCORPION DRAW ───────────────
+// pose: 'idle' | 'tail-up' | 'pincer-spread' | 'rear'
+function drawScorpion(ctx, cx, cy, t, c, pose) {
+  pose = pose || 'idle';
+  const bob = Math.round(Math.sin(t*0.04)*1);
+  const ox  = Math.round(cx/P);
+  const oy  = Math.round((cy + bob)/P);
+  const r   = (y,x0,x1,col) => rw(ctx,y,x0,x1,col,P);
+  const p   = (x,y,col)     => px(ctx,x,y,col,P);
+
+  // ── GLOW for variant C ───────────────
+  if (c.glow) {
+    const pulse = 0.35 + 0.30 * Math.sin(t*0.06);
+    ctx.globalAlpha = pulse * 0.5;
+    ctx.fillStyle = c.glow;
+    ctx.fillRect((ox-12)*P, (oy-12)*P, 22*P, 14*P);
+    ctx.globalAlpha = 1;
+  }
+
+  // ── LEGS (4 stycken, alternerande step) ──────
+  const legStep = Math.floor(t/10) % 2;
+  ctx.fillStyle = c.leg;
+  // Set A (rörs på jämna frames)
+  ctx.fillRect((ox-2)*P, (oy-1)*P, P, P + (legStep?0:P));
+  ctx.fillRect((ox+0)*P, (oy-1)*P, P, P + (legStep?P:0));
+  ctx.fillRect((ox+2)*P, (oy-1)*P, P, P + (legStep?0:P));
+  ctx.fillRect((ox+4)*P, (oy-1)*P, P, P + (legStep?P:0));
+  // Foot pads
+  ctx.fillStyle = c.bodyD;
+  ctx.fillRect((ox-2)*P, (oy)*P, P, P);
+  ctx.fillRect((ox+0)*P, (oy)*P, P, P);
+  ctx.fillRect((ox+2)*P, (oy)*P, P, P);
+  ctx.fillRect((ox+4)*P, (oy)*P, P, P);
+
+  // ── BODY (cephalothorax + abdomen) ──────────
+  // Outline first
+  r(oy-1, ox-3, ox+5, c.bodyD);    // body bottom outline
+  r(oy-2, ox-4, ox+6, c.bodyD);    // widest row outline
+  r(oy-3, ox-4, ox+6, c.bodyD);    // outline
+  r(oy-4, ox-3, ox+5, c.bodyD);    // top outline
+  // Fill (inner)
+  r(oy-2, ox-3, ox+5, c.body);
+  r(oy-3, ox-3, ox+5, c.body);
+  // Highlight (top stripe)
+  r(oy-3, ox-2, ox+4, c.bodyHL);
+  r(oy-4, ox-2, ox+4, c.body);
+  // Body plate segmentation lines
+  p(ox-1, oy-3, c.plate); p(ox-1, oy-2, c.plate);
+  p(ox+1, oy-3, c.plate); p(ox+1, oy-2, c.plate);
+  p(ox+3, oy-3, c.plate); p(ox+3, oy-2, c.plate);
+
+  // ── EYES (2 lysande prickar) ───────────────
+  p(ox-2, oy-3, c.eye);
+  p(ox-1, oy-3, c.eye);
+
+  // ── PINCER (stor framåt-pincer) ────────────
+  let pincerExt = 0;  // extra utsträckning för 'pincer-spread' pose
+  if (pose === 'pincer-spread') {
+    pincerExt = Math.round(Math.sin(t*0.18) * 1.5 + 1.5);
+  }
+  const pcx = ox - 4 - pincerExt;  // pincer base shift left when extended
+
+  // Pincer stem (2P tall, från body till klo)
+  r(oy-3, pcx-3, pcx,   c.pincer);
+  r(oy-2, pcx-3, pcx,   c.pincer);
+  // Stem outline
+  p(pcx-3, oy-4, c.pincerD);
+  p(pcx-3, oy-1, c.pincerD);
+  // Claw - upper jaw
+  r(oy-4, pcx-5, pcx-3, c.pincer);
+  p(pcx-5, oy-4, c.pincerD);
+  p(pcx-5, oy-5, c.pincerD);
+  p(pcx-4, oy-5, c.pincer);
+  // Claw - lower jaw
+  r(oy-1, pcx-5, pcx-3, c.pincer);
+  p(pcx-5, oy-1, c.pincerD);
+  p(pcx-5, oy,   c.pincerD);
+  p(pcx-4, oy,   c.pincer);
+  // Claw gap (highlight)
+  if (c.glow) p(pcx-4, oy-3, c.glow);
+
+  // ── TAIL (curving up and over front) ───────
+  // 'idle': tail curved over body
+  // 'tail-up': tail extended high and forward
+  // 'rear': tail mid-way up
+  let tailPath;
+  if (pose === 'tail-up') {
+    tailPath = [
+      [ox+5, oy-4], [ox+5, oy-6], [ox+4, oy-8],
+      [ox+2, oy-10], [ox+0, oy-12], [ox-2, oy-13],
+      [ox-4, oy-13], [ox-6, oy-12],   // stinger pointing forward-down
+    ];
+  } else if (pose === 'rear') {
+    tailPath = [
+      [ox+5, oy-4], [ox+5, oy-6], [ox+5, oy-8],
+      [ox+4, oy-10], [ox+2, oy-11], [ox+0, oy-11],
+      [ox-1, oy-10],
+    ];
+  } else {
+    // idle / pincer-spread: tail arched over body
+    tailPath = [
+      [ox+5, oy-4], [ox+5, oy-6], [ox+4, oy-8],
+      [ox+2, oy-9], [ox+0, oy-10], [ox-1, oy-9],
+      [ox-2, oy-8],   // stinger area
+    ];
+  }
+  // Draw tail outline first, then fill
+  for (const [tx, ty] of tailPath) {
+    // 2P × 2P segment with outline
+    r(ty,   tx-1, tx, c.tailD);
+    r(ty-1, tx-1, tx, c.tail);
+  }
+  // Stinger tip (extra glödande)
+  const stingerPos = tailPath[tailPath.length - 1];
+  const stx = stingerPos[0], sty = stingerPos[1];
+  // Tip pekar nedåt-framåt (vänster)
+  p(stx-2, sty,    c.stingerTip);
+  p(stx-2, sty-1,  c.stingerTip);
+  p(stx-3, sty,    c.stingerD);
+}
+
+// ─────────────── ATTACK EFFECT RENDERERS ─────────────────
+
+// 🪨 GADDSLAG: scorpion + svans upp + impact-dust på marken
+function drawAtkTail(ctx, cv, t) {
+  // bg ground
+  ctx.fillStyle = '#382010'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle = '#99dd66'; ctx.fillRect(0,150,cv.width,4);
+  ctx.fillStyle = '#77bb44'; ctx.fillRect(0,150,cv.width,2);
+
+  const c = VARIANTS.A;
+
+  // Phase: cycle 0-90 frames (svans upp → slå ned → rekyl)
+  const cycle = Math.floor(t/2) % 90;
+  let phase;
+  if (cycle < 30) phase = 'rear';      // svans reser sig
+  else if (cycle < 50) phase = 'tail-up';   // slår ned
+  else phase = 'idle';                 // återhämtar
+
+  // Skorpion på höger sida
+  drawScorpion(ctx, 210, 150, t, c, phase);
+
+  // Impact zone på marken framför skorpionen (när slag pågår)
+  if (phase === 'tail-up' || (phase === 'idle' && cycle < 65)) {
+    const impactX = 150;
+    const impactY = 150;
+    // Shockwave-ringar
+    const ringT = phase === 'tail-up' ? cycle - 30 : cycle - 30;
+    for (let i = 0; i < 3; i++) {
+      const radius = ringT * 3 - i * 12;
+      if (radius > 0 && radius < 80) {
+        ctx.strokeStyle = `rgba(255,180,80,${0.6 - radius/100})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(impactX, impactY, radius, 0, Math.PI, true);
+        ctx.stroke();
+      }
+    }
+    // Dustpartiklar
+    for (let i = 0; i < 12; i++) {
+      const a = Math.PI + (i/12) * Math.PI;
+      const dist = 10 + (cycle - 30) * 1.5 + i * 2;
+      const dx = Math.cos(a) * dist;
+      const dy = Math.sin(a) * dist * 0.6;
+      ctx.fillStyle = `rgba(220,180,120,${Math.max(0, 0.7 - dist/60)})`;
+      ctx.fillRect(impactX + dx, impactY + dy - 4, 4, 4);
+    }
+    // Impact-mark (mörk fläck)
+    ctx.fillStyle = 'rgba(80,40,20,0.6)';
+    ctx.fillRect(impactX - 12, impactY - 2, 24, 4);
+  }
+}
+
+// ✂️ PINCERSVEP: pincers fram + horisontell energi i huvudhöjd
+function drawAtkPincer(ctx, cv, t) {
+  ctx.fillStyle = '#382010'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle = '#99dd66'; ctx.fillRect(0,150,cv.width,4);
+  ctx.fillStyle = '#77bb44'; ctx.fillRect(0,150,cv.width,2);
+
+  const c = VARIANTS.A;
+  const cycle = Math.floor(t/2) % 80;
+  const phase = cycle < 60 ? 'pincer-spread' : 'idle';
+
+  drawScorpion(ctx, 210, 150, t, c, phase);
+
+  if (phase === 'pincer-spread') {
+    // Horisontell energistråle i jump-höjd (~y=90 i denna canvas)
+    const energyY = 90;
+    const flicker = 0.7 + 0.3 * Math.sin(t * 0.6);
+
+    // Bredare glow först
+    const grad = ctx.createLinearGradient(40, energyY, 200, energyY);
+    grad.addColorStop(0,    'rgba(255,80,30,0)');
+    grad.addColorStop(0.2,  `rgba(255,180,40,${0.5*flicker})`);
+    grad.addColorStop(0.7,  `rgba(255,80,30,${0.8*flicker})`);
+    grad.addColorStop(1,    'rgba(255,40,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(40, energyY - 10, 160, 20);
+
+    // Kärna - tätare ljus
+    ctx.fillStyle = `rgba(255,240,150,${flicker})`;
+    ctx.fillRect(40, energyY - 2, 160, 4);
+
+    // Gnistor längs banan
+    for (let i = 0; i < 6; i++) {
+      const sx = 40 + (i+1) * 25 + Math.sin(t*0.3 + i) * 4;
+      const sy = energyY + Math.sin(t*0.5 + i*1.7) * 6;
+      ctx.fillStyle = `rgba(255,${200 + Math.floor(Math.random()*50)},80,${flicker})`;
+      ctx.fillRect(sx, sy, 3, 3);
+    }
+  }
+}
+
+// ☢️ GIFTSPOTT: båg-projektil + gift-pöl
+function drawAtkVenom(ctx, cv, t) {
+  ctx.fillStyle = '#382010'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle = '#99dd66'; ctx.fillRect(0,150,cv.width,4);
+  ctx.fillStyle = '#77bb44'; ctx.fillRect(0,150,cv.width,2);
+
+  const c = VARIANTS.A;
+  const cycle = Math.floor(t/2) % 80;
+  const phase = cycle < 25 ? 'rear' : 'idle';
+  drawScorpion(ctx, 210, 150, t, c, phase);
+
+  // Båg-projektil (parametrisk: 0=spawn, 1=landar)
+  const flightFrames = 35;
+  if (cycle >= 20 && cycle < 20 + flightFrames) {
+    const u = (cycle - 20) / flightFrames; // 0 → 1
+    // Startposition: skorpionens stinger (ungefär över bossen)
+    const sx = 210, sy = 90;
+    // Slutposition: framför skorpionen (mark)
+    const ex = 90, ey = 148;
+    // Båg-bana (parabolisk)
+    const arcHeight = 40;
+    const x = sx + (ex - sx) * u;
+    const y = sy + (ey - sy) * u - arcHeight * Math.sin(u * Math.PI);
+
+    // Droppe med trail
+    for (let i = 0; i < 5; i++) {
+      const tu = u - i * 0.04;
+      if (tu < 0) continue;
+      const tx = sx + (ex - sx) * tu;
+      const ty = sy + (ey - sy) * tu - arcHeight * Math.sin(tu * Math.PI);
+      const alpha = 0.6 - i * 0.1;
+      ctx.fillStyle = `rgba(80,220,40,${alpha})`;
+      ctx.fillRect(tx - 3, ty - 3, 6, 6);
+    }
+    // Huvuddroppe
+    ctx.fillStyle = '#66ff44';
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#aaff88';
+    ctx.beginPath(); ctx.arc(x-1, y-1, 2, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Giftpöl på marken efter landning
+  if (cycle >= 20 + flightFrames - 5) {
+    const poolAge = Math.min(40, cycle - (20 + flightFrames - 5));
+    const poolW = Math.min(50, 14 + poolAge * 1.2);
+    const px2 = 90;
+    const py = 148;
+    // Pölbas
+    ctx.fillStyle = 'rgba(60,160,30,0.85)';
+    ctx.fillRect(px2 - poolW/2, py - 4, poolW, 4);
+    ctx.fillStyle = '#66dd44';
+    ctx.fillRect(px2 - poolW/2, py - 3, poolW, 2);
+    // Bubblor
+    for (let i = 0; i < 4; i++) {
+      const bx = px2 - poolW/2 + 6 + i * (poolW - 12) / 3;
+      const by = py - 6 + Math.sin(t*0.12 + i) * 2;
+      ctx.fillStyle = '#aaff88';
+      ctx.fillRect(bx, by, 2, 2);
+    }
+    // Glittrande partiklar uppåt
+    for (let i = 0; i < 5; i++) {
+      const sx = px2 - poolW/2 + Math.random() * poolW;
+      const sy = py - 4 - Math.random() * 14;
+      ctx.fillStyle = `rgba(120,255,80,${0.4 + Math.random()*0.4})`;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+  }
+}
+
+// ─────────────── ANIMATION LOOP ───────────────
+const cvs = {
+  scA:document.getElementById('scA'),
+  scB:document.getElementById('scB'),
+  scC:document.getElementById('scC'),
+  atkTail:document.getElementById('atkTail'),
+  atkPincer:document.getElementById('atkPincer'),
+  atkVenom:document.getElementById('atkVenom'),
+};
+const ctxs = {};
+for (const k in cvs) ctxs[k] = cvs[k].getContext('2d');
+
+let frame = 0;
+function animate() {
+  frame++;
+
+  // Variant-previews
+  for (const v of ['A','B','C']) {
+    const cv = cvs['sc'+v], c = ctxs['sc'+v];
+    c.fillStyle = '#211008'; c.fillRect(0,0,cv.width,cv.height);
+    // Ground
+    c.fillStyle = '#cc9966'; c.fillRect(0,150,cv.width,4);
+    c.fillStyle = '#aa7744'; c.fillRect(0,150,cv.width,2);
+    // Sand pattern below
+    c.fillStyle = 'rgba(140,90,50,0.4)';
+    for (let i = 0; i < 18; i++) c.fillRect(i*16 + (frame%32)/2, 156 + (i%2)*2, 6, 1);
+    drawScorpion(c, cv.width/2 + 10, 150, frame, VARIANTS[v], 'idle');
+  }
+
+  // Attack previews
+  drawAtkTail(ctxs.atkTail,     cvs.atkTail,     frame);
+  drawAtkPincer(ctxs.atkPincer, cvs.atkPincer,   frame);
+  drawAtkVenom(ctxs.atkVenom,   cvs.atkVenom,    frame);
+
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+
+</body>
+</html>

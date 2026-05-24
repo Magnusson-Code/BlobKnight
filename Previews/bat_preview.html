@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Fladdermus – förhandsvisning</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#0e0e1e; color:white;
+  font-family:'Press Start 2P',monospace;
+  display:flex; flex-direction:column; align-items:center;
+  padding:28px 12px; gap:18px; min-height:100vh;
+}
+h1  { font-size:11px; color:#cc88ff; letter-spacing:1px; }
+.sub { font-size:7px; color:#445; }
+.grid { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+.card {
+  background:#181828; border:2px solid #3a2244;
+  padding:14px; display:flex; flex-direction:column; align-items:center; gap:10px;
+  width:210px;
+}
+.label { font-size:9px; color:#ffcc66; }
+canvas { image-rendering:pixelated; image-rendering:crisp-edges; }
+.desc  { font-size:7px; color:#557; text-align:center; line-height:1.9; max-width:190px; }
+.pick  { font-size:9px; color:#cc88ff; margin-top:4px; }
+</style>
+</head>
+<body>
+
+<h1>FLADDERMUS – VÄLJ DESIGN</h1>
+<p class="sub">Lila kropp · röda ögon · animerade vingar</p>
+
+<div class="grid">
+  <div class="card"><div class="label">A) Klassisk</div>
+    <canvas id="cA" width="192" height="160"></canvas>
+    <p class="desc">Bred, symmetrisk vingspann.<br>Tydlig klassisk fladdermus-form.</p>
+  </div>
+  <div class="card"><div class="label">B) Chibi / Söt</div>
+    <canvas id="cB" width="192" height="160"></canvas>
+    <p class="desc">Rund, knubbig kropp.<br>Matchar Blobs chibi-stil bäst.</p>
+  </div>
+  <div class="card"><div class="label">C) Stor / Hotfull</div>
+    <canvas id="cC" width="192" height="160"></canvas>
+    <p class="desc">Stor vingspann, spetsiga vingar.<br>Mer aggressiv och hotfull.</p>
+  </div>
+  <div class="card"><div class="label">D) Strömlinjeformad</div>
+    <canvas id="cD" width="192" height="160"></canvas>
+    <p class="desc">Smal kropp, sneda bakåtsvepta vingar.<br>Ser ut som en snabb anfallare.</p>
+  </div>
+</div>
+
+<p class="pick">Svara A, B, C eller D</p>
+
+<script>
+// ── Pixel helpers ──────────────────────────────────────────────────────────────
+const P = 6; // px per game-pixel (larger for preview clarity)
+
+function dot(c, gx, gy, col) {
+  c.fillStyle = col; c.fillRect(gx*P, gy*P, P, P);
+}
+function hl(c, gy, gx0, gx1, col) {
+  c.fillStyle = col; c.fillRect(gx0*P, gy*P, (gx1-gx0+1)*P, P);
+}
+
+// ── Colors ────────────────────────────────────────────────────────────────────
+const PU = '#7722bb'; // purple body
+const PL = '#aa55ee'; // light purple wings
+const PS = '#4a1177'; // shadow purple
+const RD = '#ff2233'; // red eyes
+const EH = '#ffaaaa'; // eye highlight
+const BK = '#11002a'; // outline
+const BG = '#1a0a2e'; // background
+
+// ── Bat A: Klassisk (13 wide × 8 tall) ───────────────────────────────────────
+function drawA(c, up) {
+  const ox = 2, oy = up ? 2 : 3;
+
+  if (!up) {
+    // Wings spread wide
+    hl(c,oy,  ox,   ox+1, BK); hl(c,oy,  ox+11,ox+12,BK);
+    hl(c,oy+1,ox-1, ox+2, BK); hl(c,oy+1,ox+10,ox+13,BK);
+    hl(c,oy+2,ox-1, ox+1, BK); hl(c,oy+2,ox+11,ox+13,BK);
+    hl(c,oy+3,ox,   ox+1, BK); hl(c,oy+3,ox+11,ox+12,BK);
+    hl(c,oy,  ox+1, ox+1, PL); hl(c,oy,  ox+11,ox+11,PL);
+    hl(c,oy+1,ox,   ox+2, PL); hl(c,oy+1,ox+10,ox+12,PL);
+    hl(c,oy+2,ox,   ox+1, PL); hl(c,oy+2,ox+11,ox+12,PL);
+    hl(c,oy+3,ox+1, ox+1, PL); hl(c,oy+3,ox+11,ox+11,PL);
+  } else {
+    // Wings raised
+    hl(c,oy-1,ox+1, ox+3, BK); hl(c,oy-1,ox+9, ox+11,BK);
+    hl(c,oy,  ox,   ox+3, BK); hl(c,oy,  ox+9, ox+12,BK);
+    hl(c,oy+1,ox,   ox+2, BK); hl(c,oy+1,ox+10,ox+12,BK);
+    hl(c,oy-1,ox+2, ox+3, PL); hl(c,oy-1,ox+9, ox+10,PL);
+    hl(c,oy,  ox+1, ox+3, PL); hl(c,oy,  ox+9, ox+11,PL);
+    hl(c,oy+1,ox+1, ox+2, PL); hl(c,oy+1,ox+10,ox+11,PL);
+  }
+
+  // Ears
+  dot(c,ox+4,oy-1,BK); dot(c,ox+4,oy,BK);
+  dot(c,ox+8,oy-1,BK); dot(c,ox+8,oy,BK);
+  dot(c,ox+4,oy,PU); dot(c,ox+8,oy,PU);
+
+  // Body outline
+  hl(c,oy+1,ox+4,ox+8,BK);
+  hl(c,oy+2,ox+3,ox+9,BK);
+  hl(c,oy+3,ox+3,ox+9,BK);
+  hl(c,oy+4,ox+3,ox+9,BK);
+  hl(c,oy+5,ox+4,ox+8,BK);
+
+  // Body fill
+  hl(c,oy+1,ox+5,ox+7,PU);
+  hl(c,oy+2,ox+4,ox+8,PU);
+  hl(c,oy+3,ox+4,ox+8,PU);
+  hl(c,oy+4,ox+4,ox+8,PS);
+  hl(c,oy+5,ox+5,ox+7,PS);
+
+  // Eyes
+  dot(c,ox+5,oy+2,RD); dot(c,ox+7,oy+2,RD);
+  dot(c,ox+5,oy+3,EH); dot(c,ox+7,oy+3,EH);
+}
+
+// ── Bat B: Chibi / Söt (9 wide × 9 tall) ────────────────────────────────────
+function drawB(c, up) {
+  const ox = 4, oy = up ? 1 : 2;
+
+  // Small rounded wings
+  if (!up) {
+    hl(c,oy+2,ox-2,ox-1,BK); hl(c,oy+2,ox+8,ox+9,BK);
+    hl(c,oy+3,ox-2,ox-1,BK); hl(c,oy+3,ox+8,ox+9,BK);
+    hl(c,oy+4,ox-1,ox-1,BK); hl(c,oy+4,ox+8,ox+8,BK);
+    hl(c,oy+2,ox-1,ox-1,PL); hl(c,oy+2,ox+8,ox+8,PL);
+    hl(c,oy+3,ox-1,ox-1,PL); hl(c,oy+3,ox+8,ox+8,PL);
+  } else {
+    hl(c,oy,  ox-1,ox+1,BK); hl(c,oy,  ox+6,ox+8,BK);
+    hl(c,oy+1,ox-2,ox-1,BK); hl(c,oy+1,ox+8,ox+9,BK);
+    hl(c,oy+2,ox-2,ox-1,BK); hl(c,oy+2,ox+8,ox+9,BK);
+    hl(c,oy,  ox,  ox+1,PL); hl(c,oy,  ox+6,ox+7,PL);
+    hl(c,oy+1,ox-1,ox-1,PL); hl(c,oy+1,ox+8,ox+8,PL);
+    hl(c,oy+2,ox-1,ox-1,PL); hl(c,oy+2,ox+8,ox+8,PL);
+  }
+
+  // Ears
+  dot(c,ox+1,oy-1,BK); dot(c,ox+1,oy,BK);
+  dot(c,ox+6,oy-1,BK); dot(c,ox+6,oy,BK);
+  dot(c,ox+1,oy,PU); dot(c,ox+6,oy,PU);
+
+  // Round fat body
+  hl(c,oy,  ox+2,ox+5,BK);
+  hl(c,oy+1,ox,  ox+7,BK);
+  hl(c,oy+2,ox,  ox+7,BK);
+  hl(c,oy+3,ox,  ox+7,BK);
+  hl(c,oy+4,ox,  ox+7,BK);
+  hl(c,oy+5,ox,  ox+7,BK);
+  hl(c,oy+6,ox+1,ox+6,BK);
+  hl(c,oy+7,ox+2,ox+5,BK);
+
+  hl(c,oy,  ox+3,ox+4,PU);
+  hl(c,oy+1,ox+1,ox+6,PU);
+  hl(c,oy+2,ox+1,ox+6,PU);
+  hl(c,oy+3,ox+1,ox+6,PU);
+  hl(c,oy+4,ox+1,ox+6,PU);
+  hl(c,oy+5,ox+1,ox+6,PS);
+  hl(c,oy+6,ox+2,ox+5,PS);
+  hl(c,oy+7,ox+3,ox+4,PS);
+
+  // Big cute eyes
+  hl(c,oy+2,ox+2,ox+3,RD); hl(c,oy+2,ox+5,ox+6,RD);
+  dot(c,ox+2,oy+3,EH);     dot(c,ox+5,oy+3,EH);
+
+  // Little fangs
+  dot(c,ox+3,oy+6,EH); dot(c,ox+5,oy+6,EH);
+}
+
+// ── Bat C: Stor / Hotfull (17 wide × 8 tall) ────────────────────────────────
+function drawC(c, up) {
+  const ox = 0, oy = up ? 1 : 2;
+
+  if (!up) {
+    // Long sweeping wings
+    hl(c,oy,  ox,   ox+2, BK); hl(c,oy,  ox+14,ox+16,BK);
+    hl(c,oy+1,ox,   ox+3, BK); hl(c,oy+1,ox+13,ox+16,BK);
+    hl(c,oy+2,ox,   ox+3, BK); hl(c,oy+2,ox+13,ox+16,BK);
+    hl(c,oy+3,ox+1, ox+3, BK); hl(c,oy+3,ox+13,ox+15,BK);
+    hl(c,oy+4,ox+2, ox+3, BK); hl(c,oy+4,ox+13,ox+14,BK);
+    hl(c,oy,  ox+1, ox+2, PL); hl(c,oy,  ox+14,ox+15,PL);
+    hl(c,oy+1,ox+1, ox+3, PL); hl(c,oy+1,ox+13,ox+15,PL);
+    hl(c,oy+2,ox+1, ox+3, PL); hl(c,oy+2,ox+13,ox+15,PL);
+    hl(c,oy+3,ox+2, ox+3, PL); hl(c,oy+3,ox+13,ox+14,PL);
+  } else {
+    hl(c,oy-2,ox+3, ox+5, BK); hl(c,oy-2,ox+11,ox+13,BK);
+    hl(c,oy-1,ox+1, ox+5, BK); hl(c,oy-1,ox+11,ox+15,BK);
+    hl(c,oy,  ox,   ox+4, BK); hl(c,oy,  ox+12,ox+16,BK);
+    hl(c,oy+1,ox,   ox+3, BK); hl(c,oy+1,ox+13,ox+16,BK);
+    hl(c,oy-2,ox+4, ox+5, PL); hl(c,oy-2,ox+11,ox+12,PL);
+    hl(c,oy-1,ox+2, ox+5, PL); hl(c,oy-1,ox+11,ox+14,PL);
+    hl(c,oy,  ox+1, ox+4, PL); hl(c,oy,  ox+12,ox+15,PL);
+    hl(c,oy+1,ox+1, ox+3, PL); hl(c,oy+1,ox+13,ox+15,PL);
+  }
+
+  // Sharp ears
+  dot(c,ox+6,oy-1,BK); dot(c,ox+6,oy,BK);
+  dot(c,ox+10,oy-1,BK); dot(c,ox+10,oy,BK);
+
+  // Wide body
+  hl(c,oy+1,ox+5,ox+11,BK);
+  hl(c,oy+2,ox+4,ox+12,BK);
+  hl(c,oy+3,ox+4,ox+12,BK);
+  hl(c,oy+4,ox+4,ox+12,BK);
+  hl(c,oy+5,ox+5,ox+11,BK);
+  hl(c,oy+6,ox+6,ox+10,BK);
+
+  hl(c,oy+1,ox+6,ox+10,PU);
+  hl(c,oy+2,ox+5,ox+11,PU);
+  hl(c,oy+3,ox+5,ox+11,PU);
+  hl(c,oy+4,ox+5,ox+11,PS);
+  hl(c,oy+5,ox+6,ox+10,PS);
+  hl(c,oy+6,ox+7,ox+9, PS);
+
+  dot(c,ox+6,oy,PU); dot(c,ox+10,oy,PU);
+
+  // Menacing eyes
+  hl(c,oy+2,ox+6,ox+7,RD); hl(c,oy+2,ox+9,ox+10,RD);
+  dot(c,ox+7,oy+3,EH); dot(c,ox+9,oy+3,EH);
+
+  // Fangs
+  dot(c,ox+7,oy+5,EH); dot(c,ox+9,oy+5,EH);
+}
+
+// ── Bat D: Strömlinjeformad (11 wide × 8 tall) ───────────────────────────────
+function drawD(c, up) {
+  const ox = 3, oy = up ? 1 : 2;
+
+  // Swept-back diagonal wings
+  if (!up) {
+    // Wings angled slightly downward (swept back)
+    dot(c,ox,   oy,   BK); dot(c,ox,   oy+1,BK);
+    dot(c,ox+10,oy,   BK); dot(c,ox+10,oy+1,BK);
+    hl(c,oy+1,ox-1,ox+1,BK); hl(c,oy+1,ox+9,ox+11,BK);
+    hl(c,oy+2,ox-1,ox,  BK); hl(c,oy+2,ox+10,ox+11,BK);
+    hl(c,oy+3,ox-1,ox,  BK); hl(c,oy+3,ox+10,ox+11,BK);
+    dot(c,ox,   oy+1,PL); dot(c,ox+10,oy+1,PL);
+    hl(c,oy+1,ox,  ox+1,PL); hl(c,oy+1,ox+9, ox+10,PL);
+    hl(c,oy+2,ox,  ox,  PL); hl(c,oy+2,ox+10,ox+10,PL);
+    hl(c,oy+3,ox,  ox,  PL); hl(c,oy+3,ox+10,ox+10,PL);
+  } else {
+    // Wings swept back & up
+    hl(c,oy-1,ox-1,ox+1,BK); hl(c,oy-1,ox+9,ox+11,BK);
+    hl(c,oy,  ox-2,ox,  BK); hl(c,oy,  ox+10,ox+12,BK);
+    hl(c,oy+1,ox-2,ox-1,BK); hl(c,oy+1,ox+11,ox+12,BK);
+    hl(c,oy-1,ox,  ox+1,PL); hl(c,oy-1,ox+9, ox+10,PL);
+    hl(c,oy,  ox-1,ox,  PL); hl(c,oy,  ox+10,ox+11,PL);
+    hl(c,oy+1,ox-1,ox-1,PL); hl(c,oy+1,ox+11,ox+11,PL);
+  }
+
+  // Pointy ears (asymmetric, aggressive)
+  dot(c,ox+3,oy-1,BK); dot(c,ox+3,oy,BK);
+  dot(c,ox+7,oy-2,BK); dot(c,ox+7,oy-1,BK); dot(c,ox+7,oy,BK);
+  dot(c,ox+3,oy,PU); dot(c,ox+7,oy,PU); dot(c,ox+7,oy-1,PU);
+
+  // Slim body
+  hl(c,oy,  ox+2,ox+8,BK);
+  hl(c,oy+1,ox+1,ox+9,BK);
+  hl(c,oy+2,ox+1,ox+9,BK);
+  hl(c,oy+3,ox+1,ox+9,BK);
+  hl(c,oy+4,ox+2,ox+8,BK);
+  hl(c,oy+5,ox+3,ox+7,BK);
+
+  hl(c,oy,  ox+3,ox+7,PU);
+  hl(c,oy+1,ox+2,ox+8,PU);
+  hl(c,oy+2,ox+2,ox+8,PU);
+  hl(c,oy+3,ox+2,ox+8,PS);
+  hl(c,oy+4,ox+3,ox+7,PS);
+  hl(c,oy+5,ox+4,ox+6,PS);
+
+  // Narrow glowing eyes
+  dot(c,ox+3,oy+1,RD); dot(c,ox+7,oy+1,RD);
+  dot(c,ox+4,oy+1,RD); dot(c,ox+6,oy+1,RD);
+  dot(c,ox+3,oy+2,EH); dot(c,ox+7,oy+2,EH);
+}
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+const canvases = {
+  A: document.getElementById('cA'),
+  B: document.getElementById('cB'),
+  C: document.getElementById('cC'),
+  D: document.getElementById('cD'),
+};
+
+const drawFns = { A: drawA, B: drawB, C: drawC, D: drawD };
+
+let t = 0;
+
+function loop() {
+  t++;
+  const up = Math.floor(t / 18) % 2 === 1;
+  // Hover bob
+  const bob = Math.sin(t * 0.07) * P * 0.5;
+
+  for (const [key, cv] of Object.entries(canvases)) {
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // Center the bat
+    ctx.save();
+    ctx.translate(W/2 - 6*P, H/2 - 4*P + bob);
+    drawFns[key](ctx, up);
+    ctx.restore();
+
+    // Label
+    ctx.font = `7px "Press Start 2P"`;
+    ctx.fillStyle = '#cc88ff';
+    ctx.textAlign = 'center';
+    ctx.fillText(key, W/2, H - 8);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

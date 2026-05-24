@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Bakgrundsmusik – förslag</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#0d0d1a; color:white;
+  font-family:'Courier New',monospace;
+  display:flex; flex-direction:column; align-items:center;
+  padding:30px 16px; gap:18px;
+}
+h1 { color:#aaddff; font-size:15px; letter-spacing:2px; }
+.sub { color:#445; font-size:10px; }
+.col { display:flex; flex-direction:column; gap:14px; width:560px; }
+.card {
+  background:#111828; border:2px solid #1a2a40; border-radius:6px;
+  padding:16px 20px; display:flex; align-items:center; gap:20px;
+}
+.card.playing { border-color:#44aaff; background:#0d1a2e; }
+.info { flex:1; }
+.info h2 { font-size:12px; color:#ffcc66; margin-bottom:3px; }
+.info p  { font-size:10px; color:#446; }
+.info .tags { font-size:9px; color:#336; margin-top:5px; }
+.btn {
+  width:52px; height:52px; border-radius:6px; border:none; cursor:pointer;
+  font-size:22px; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:transform 0.1s;
+}
+.btn:active { transform:scale(0.92); }
+.btn-play  { background:#226633; color:#66ff99; }
+.btn-stop  { background:#441122; color:#ff6666; }
+.viz {
+  width:100%; height:6px; background:#0a0a18; border-radius:3px;
+  margin-top:10px; overflow:hidden;
+}
+.viz-bar {
+  height:100%; width:0%; background:linear-gradient(90deg,#0044aa,#44ccff);
+  border-radius:3px; transition:width 0.05s linear;
+}
+</style>
+</head>
+<body>
+<h1>BAKGRUNDSMUSIK – VÄLJ A B C D</h1>
+<p class="sub">Tryck play för att lyssna · alla loopar sömlöst</p>
+
+<div class="col">
+  <div class="card" id="card-A">
+    <button class="btn btn-play" onclick="toggle('A')">▶</button>
+    <div class="info">
+      <h2>A) Green Fields</h2>
+      <p>Glad och hoppig · klassisk NES-äventyrskänsla</p>
+      <div class="tags">♩ 130 BPM · C-dur · glad · fas 1</div>
+      <div class="viz"><div class="viz-bar" id="viz-A"></div></div>
+    </div>
+  </div>
+
+  <div class="card" id="card-B">
+    <button class="btn btn-play" onclick="toggle('B')">▶</button>
+    <div class="info">
+      <h2>B) Battle March</h2>
+      <p>Heroisk och driven · marchrytm med energi</p>
+      <div class="tags">♩ 150 BPM · G-dur · heroisk · fas 1–2</div>
+      <div class="viz"><div class="viz-bar" id="viz-B"></div></div>
+    </div>
+  </div>
+
+  <div class="card" id="card-C">
+    <button class="btn btn-play" onclick="toggle('C')">▶</button>
+    <div class="info">
+      <h2>C) Shadow Path</h2>
+      <p>Mörk och mystisk · minor-tonart · spänning</p>
+      <div class="tags">♩ 110 BPM · a-moll · atmosfärisk · fas 2–3</div>
+      <div class="viz"><div class="viz-bar" id="viz-C"></div></div>
+    </div>
+  </div>
+
+  <div class="card" id="card-D">
+    <button class="btn btn-play" onclick="toggle('D')">▶</button>
+    <div class="info">
+      <h2>D) Speed Run</h2>
+      <p>Snabb och intensiv · driver på · högt tempo</p>
+      <div class="tags">♩ 170 BPM · D-dur · intensiv · fas 2–3</div>
+      <div class="viz"><div class="viz-bar" id="viz-D"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ac = null;
+function getAC() {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+
+// ── MUSIC ENGINE ──────────────────────────────────────────────────────────────
+// Note: [freq_hz, beats]  |  0 = rest
+const B = 0; // rest alias
+
+// Frequencies
+const n = {
+  C3:131,D3:147,E3:165,F3:175,G3:196,A3:220,B3:247,
+  C4:262,D4:294,E4:330,F4:349,G4:392,A4:440,B4:494,
+  Cs4:277,Ds4:311,Fs4:370,Gs4:415,
+  C5:523,D5:587,E5:659,F5:698,G5:784,A5:880,B5:988,
+  Cs5:554,Ds5:622,Fs5:740,Gs5:831,
+  C6:1047,D6:1175,E6:1319,Fs5_:740,
+};
+
+// ── A: GREEN FIELDS ─ 130 BPM, C major ───────────────────────────────────────
+const trackA = {
+  bpm: 130,
+  melody: [
+    [n.C5,0.5],[n.E5,0.5],[n.G5,0.5],[n.C6,0.5],
+    [n.B5,0.5],[n.G5,0.5],[n.E5,0.25],[n.D5,0.25],
+    [n.F5,0.5],[n.A5,0.5],[n.C6,0.5],[n.A5,0.5],
+    [n.G5,0.5],[n.E5,0.25],[n.D5,0.25],[n.C5,0.5],
+    [n.E5,0.5],[n.G5,0.5],[n.E5,0.25],[n.D5,0.25],[n.C5,0.5],
+    [n.G4,0.25],[n.A4,0.25],[n.B4,0.25],[n.C5,0.25],[n.D5,0.5],[B,0.5],
+    [n.C5,0.25],[n.D5,0.25],[n.E5,0.25],[n.F5,0.25],[n.G5,0.5],[n.E5,0.5],
+    [n.D5,0.5],[n.C5,0.75],[B,0.25],
+  ],
+  bass: [
+    [n.C3,1],[n.G3,1],[n.F3,1],[n.G3,1],
+    [n.C3,1],[n.G3,1],[n.F3,1],[n.C3,1],
+  ],
+  perc: [1,0,0.4,0, 1,0,0.4,0, 1,0,0.4,0, 1,0,0.4,0], // kick/hihat pattern (16 steps per bar)
+  percBeat: 0.25,
+};
+
+// ── B: BATTLE MARCH ─ 150 BPM, G major ───────────────────────────────────────
+const trackB = {
+  bpm: 150,
+  melody: [
+    [n.G5,0.5],[n.B5,0.5],[n.D6,0.5],[n.B5,0.5],
+    [n.A5,0.25],[n.G5,0.25],[n.A5,0.5],[n.B5,0.5],
+    [n.G5,0.5],[n.E5,0.5],[n.D5,0.5],[n.E5,0.5],
+    [n.D5,0.75],[B,0.25],[n.D5,0.5],
+    [n.A5,0.5],[n.G5,0.5],[n.Fs5,0.5],[n.G5,0.5],
+    [n.B5,0.5],[n.D6,0.5],[n.B5,0.25],[n.A5,0.25],[n.G5,0.5],
+    [n.E5,0.5],[n.D5,0.5],[n.E5,0.5],[n.Fs5,0.5],
+    [n.G5,1],[B,1],
+  ],
+  bass: [
+    [n.G3,0.5],[n.D3,0.5],[n.G3,0.5],[n.D3,0.5],
+    [n.G3,0.5],[n.D3,0.5],[n.G3,0.5],[n.D3,0.5],
+    [n.C4,0.5],[n.G3,0.5],[n.C4,0.5],[n.G3,0.5],
+    [n.D4,0.5],[n.A3,0.5],[n.D4,0.5],[n.A3,0.5],
+  ],
+  perc: [1,0,0,0.5, 0,0.5,0,0, 1,0,0,0.5, 0,0.5,0,0],
+  percBeat: 0.25,
+};
+
+// ── C: SHADOW PATH ─ 110 BPM, A minor ────────────────────────────────────────
+const trackC = {
+  bpm: 110,
+  melody: [
+    [n.A5,0.75],[n.G5,0.25],[n.E5,0.5],[n.C5,0.5],
+    [n.D5,0.5],[n.E5,0.5],[n.A4,1],
+    [n.F5,0.5],[n.E5,0.25],[n.D5,0.25],[n.C5,0.5],[n.E5,0.5],
+    [n.A4,0.75],[B,0.25],[n.B4,0.5],[n.C5,0.5],
+    [n.A5,0.5],[n.Gs5,0.5],[n.A5,0.5],[n.E5,0.5],
+    [n.G5,0.5],[n.F5,0.5],[n.E5,0.5],[n.D5,0.5],
+    [n.C5,0.5],[n.D5,0.5],[n.E5,0.5],[n.F5,0.5],
+    [n.E5,1],[B,1],
+  ],
+  bass: [
+    [n.A3,1],[n.E3,1],[n.F3,1],[n.E3,1],
+    [n.A3,1],[n.G3,1],[n.F3,1],[n.E3,1],
+  ],
+  perc: [1,0,0,0, 0,0,0.3,0, 0,0,1,0, 0,0,0.3,0],
+  percBeat: 0.25,
+};
+
+// ── D: SPEED RUN ─ 170 BPM, D major ──────────────────────────────────────────
+const trackD = {
+  bpm: 170,
+  melody: [
+    [n.D5,0.25],[n.Fs5,0.25],[n.A5,0.25],[n.D6,0.25],
+    [n.C6,0.25],[n.A5,0.25],[n.Fs5,0.25],[n.E5,0.25],
+    [n.G5,0.25],[n.B5,0.25],[n.D6,0.25],[n.B5,0.25],
+    [n.A5,0.25],[n.G5,0.25],[n.Fs5,0.25],[n.D5,0.25],
+    [n.E5,0.25],[n.Fs5,0.25],[n.G5,0.25],[n.A5,0.25],
+    [n.B5,0.25],[n.A5,0.25],[n.G5,0.25],[n.Fs5,0.25],
+    [n.A5,0.25],[n.Fs5,0.25],[n.D5,0.25],[n.E5,0.25],
+    [n.Fs5,0.5],[n.D5,0.25],[B,0.25],
+    [n.A5,0.25],[n.G5,0.25],[n.Fs5,0.25],[n.E5,0.25],
+    [n.D5,0.25],[n.E5,0.25],[n.Fs5,0.25],[n.G5,0.25],
+    [n.A5,0.25],[n.B5,0.25],[n.A5,0.25],[n.G5,0.25],
+    [n.Fs5,0.25],[n.E5,0.25],[n.D5,0.25],[n.Cs5,0.25],
+    [n.D5,0.25],[n.Fs5,0.25],[n.A5,0.25],[n.Fs5,0.25],
+    [n.E5,0.25],[n.D5,0.25],[n.E5,0.25],[n.Fs5,0.25],
+    [n.G5,0.25],[n.Fs5,0.25],[n.E5,0.25],[n.D5,0.25],
+    [n.Fs5,0.5],[n.D5,0.5],
+  ],
+  bass: [
+    [n.D3,0.5],[n.A3,0.5],[n.D3,0.5],[n.A3,0.5],
+    [n.G3,0.5],[n.D3,0.5],[n.G3,0.5],[n.A3,0.5],
+    [n.D3,0.5],[n.A3,0.5],[n.Fs3||n.Fs4*0.5,0.5],[n.A3,0.5],
+    [n.G3,0.5],[n.D3,0.5],[n.A3,0.5],[n.D3,0.5],
+  ],
+  perc: [1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0.3,0.5,0.3],
+  percBeat: 0.25,
+};
+// Fix missing freq
+trackD.bass = trackD.bass.map(([f,d]) => [f||147, d]);
+
+// ── PLAYER ────────────────────────────────────────────────────────────────────
+const players = {};
+let currentPlaying = null;
+
+function scheduleNote(freq, dur, time, vol, wave) {
+  if (!freq || freq < 20) return;
+  const c = getAC();
+  const o = c.createOscillator(), g = c.createGain();
+  o.connect(g); g.connect(c.destination);
+  o.type = wave;
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, time);
+  g.gain.setValueAtTime(vol, time + dur * 0.75);
+  g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.95);
+  o.start(time); o.stop(time + dur);
+}
+
+function scheduleNoise(vol, time, dur) {
+  if (vol < 0.05) return;
+  const c = getAC();
+  const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = c.createBufferSource(), g = c.createGain();
+  src.buffer = buf; src.connect(g); g.connect(c.destination);
+  g.gain.setValueAtTime(vol * 0.12, time);
+  g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.8);
+  src.start(time); src.stop(time + dur);
+}
+
+class Player {
+  constructor(id, track) {
+    this.id = id;
+    this.track = track;
+    this.playing = false;
+    this.loopDur = 0;
+    this.loopStart = 0;
+  }
+
+  start() {
+    this.playing = true;
+    const c = getAC();
+    const beatDur = 60 / this.track.bpm;
+
+    // Compute loop duration
+    let melLen = this.track.melody.reduce((s,[,b]) => s+b, 0) * beatDur;
+    let bassLen = this.track.bass.reduce((s,[,b]) => s+b, 0) * beatDur;
+    let percLen = this.track.perc.length * this.track.percBeat * beatDur;
+    this.loopDur = Math.max(melLen, bassLen, percLen);
+    this.loopStart = c.currentTime + 0.05;
+    this.scheduleLoop(this.loopStart);
+    this.vizInterval = setInterval(() => this.updateViz(), 50);
+  }
+
+  scheduleLoop(startAt) {
+    if (!this.playing) return;
+    const c = getAC();
+    const beat = 60 / this.track.bpm;
+
+    // Melody
+    let t = startAt;
+    for (const [freq, beats] of this.track.melody) {
+      scheduleNote(freq, beats * beat * 0.88, t, 0.14, 'square');
+      t += beats * beat;
+    }
+
+    // Bass
+    t = startAt;
+    for (const [freq, beats] of this.track.bass) {
+      scheduleNote(freq, beats * beat * 0.82, t, 0.1, 'triangle');
+      t += beats * beat;
+    }
+
+    // Percussion
+    t = startAt;
+    for (const vol of this.track.perc) {
+      scheduleNoise(vol, t, this.track.percBeat * beat * 0.5);
+      t += this.track.percBeat * beat;
+    }
+
+    // Schedule next loop
+    const nextLoop = startAt + this.loopDur;
+    const msUntilNext = (nextLoop - c.currentTime - 0.05) * 1000;
+    this.loopTimeout = setTimeout(() => {
+      if (this.playing) this.scheduleLoop(nextLoop);
+    }, Math.max(0, msUntilNext));
+  }
+
+  stop() {
+    this.playing = false;
+    clearTimeout(this.loopTimeout);
+    clearInterval(this.vizInterval);
+    document.getElementById('viz-' + this.id).style.width = '0%';
+    document.getElementById('card-' + this.id).classList.remove('playing');
+    document.querySelector('#card-' + this.id + ' .btn').textContent = '▶';
+    document.querySelector('#card-' + this.id + ' .btn').className = 'btn btn-play';
+  }
+
+  updateViz() {
+    if (!this.playing) return;
+    const c = getAC();
+    const elapsed = (c.currentTime - this.loopStart) % this.loopDur;
+    const pct = (elapsed / this.loopDur) * 100;
+    document.getElementById('viz-' + this.id).style.width = pct + '%';
+  }
+}
+
+function toggle(id) {
+  // Stop current
+  if (currentPlaying && currentPlaying !== id) {
+    if (players[currentPlaying]) players[currentPlaying].stop();
+  }
+
+  if (!players[id] || !players[id].playing) {
+    const tracks = { A: trackA, B: trackB, C: trackC, D: trackD };
+    players[id] = new Player(id, tracks[id]);
+    players[id].start();
+    currentPlaying = id;
+    document.getElementById('card-' + id).classList.add('playing');
+    const btn = document.querySelector('#card-' + id + ' .btn');
+    btn.textContent = '■'; btn.className = 'btn btn-stop';
+  } else {
+    players[id].stop();
+    currentPlaying = null;
+  }
+}
+</script>
+</body>
+</html>

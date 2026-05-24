@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Poäng-font – förslag</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#111122; color:white;
+  font-family:'Courier New',monospace;
+  display:flex; flex-direction:column; align-items:center;
+  padding:28px 16px; gap:20px;
+}
+h1 { color:#aaddff; font-size:15px; letter-spacing:2px; }
+.sub { color:#445; font-size:10px; }
+.col { display:flex; flex-direction:column; gap:16px; width:660px; }
+.card {
+  background:#181828; border:2px solid #2a2a44; border-radius:5px;
+  padding:0; overflow:hidden;
+}
+.card h2 { font-size:11px; color:#ffcc66; padding:10px 14px 6px; letter-spacing:1px; }
+.card p  { font-size:9px; color:#445; padding:0 14px 10px; }
+canvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges; }
+</style>
+</head>
+<body>
+<h1>POÄNG-FONT – VÄLJ A B C D</h1>
+<p class="sub">Alla visar samma HUD-kontext som i spelet</p>
+
+<div class="col">
+  <div class="card">
+    <h2>A) Press Start 2P</h2>
+    <p>Klassisk arkad-font · kraftfull · liten storlek rekommenderas</p>
+    <canvas id="cA" width="660" height="72"></canvas>
+  </div>
+  <div class="card">
+    <h2>B) Silkscreen Bold</h2>
+    <p>Tunn pixel-font · luftig och lättläst · modern indie-känsla</p>
+    <canvas id="cB" width="660" height="72"></canvas>
+  </div>
+  <div class="card">
+    <h2>C) VT323</h2>
+    <p>Retro terminal-stil · stor och tydlig · snabb att läsa</p>
+    <canvas id="cC" width="660" height="72"></canvas>
+  </div>
+  <div class="card">
+    <h2>D) Pixelify Sans Bold</h2>
+    <p>Mjuk pixel-font · rund och vänlig · lättläst på alla storlekar</p>
+    <canvas id="cD" width="660" height="72"></canvas>
+  </div>
+</div>
+
+<script>
+function drawHUD(canvas, fontScore, fontLabel, sizeScore, sizeLabel, scoreColor, labelColor) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // BG strip like game
+  ctx.fillStyle = '#aaddff'; ctx.fillRect(0, 0, W, H * 0.5);
+  ctx.fillStyle = '#cceeff'; ctx.fillRect(0, H * 0.5, W, H * 0.3);
+  ctx.fillStyle = '#bbffee'; ctx.fillRect(0, H * 0.8, W, H * 0.2);
+
+  // HUD bar overlay
+  ctx.fillStyle = 'rgba(10,10,30,0.55)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Hearts (simplified pixel hearts)
+  function heart(cx, cy, S, filled) {
+    const OUTLINE = [[0,2],[0,3],[0,5],[0,6],[1,1],[1,4],[1,7],[2,0],[2,8],[3,0],[3,8],[4,0],[4,8],[5,1],[5,7],[6,2],[6,6],[7,3],[7,5],[8,4]];
+    const FILL    = [[1,2],[1,3],[1,5],[1,6],[2,1],[2,2],[2,3],[2,4],[2,5],[2,6],[2,7],[3,1],[3,2],[3,3],[3,4],[3,5],[3,6],[3,7],[4,1],[4,2],[4,3],[4,4],[4,5],[4,6],[4,7],[5,2],[5,3],[5,4],[5,5],[5,6],[6,3],[6,4],[6,5],[7,4]];
+    ctx.fillStyle = '#111122';
+    for (const [r,c] of OUTLINE) ctx.fillRect(cx+c*S, cy+r*S, S, S);
+    ctx.fillStyle = filled ? '#ee2244' : '#334455';
+    for (const [r,c] of FILL) ctx.fillRect(cx+c*S, cy+r*S, S, S);
+  }
+  for (let i = 0; i < 3; i++) heart(10 + i*44, 6, 4, true);
+
+  // Flame bar (simplified)
+  const bx = 10, by = H - 22, nb = 10, bw = 8, bh = 20;
+  ctx.fillStyle = '#111122'; ctx.fillRect(bx-2, by-2, nb*bw+4, bh+4);
+  for (let i = 0; i < nb; i++) {
+    ctx.fillStyle = i < 7 ? (i < 3 ? '#cc2200' : i < 6 ? '#ff6600' : '#ff9900') : '#ffdd00';
+    ctx.fillRect(bx+i*bw, by, bw, bh);
+    if (i < nb-1) { ctx.fillStyle='#111122'; ctx.fillRect(bx+i*bw+bw-1,by,1,bh); }
+  }
+
+  // Phase
+  ctx.textAlign = 'center';
+  ctx.font = '13px Arial';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillText('Phase 1', W / 2, 20);
+
+  // Score label
+  ctx.textAlign = 'right';
+  ctx.font = `${sizeLabel} ${fontLabel}`;
+  ctx.fillStyle = labelColor;
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+  ctx.fillText('Poäng', W - 14, 22);
+  ctx.shadowBlur = 0;
+
+  // Score value
+  ctx.font = `bold ${sizeScore} ${fontScore}`;
+  ctx.fillStyle = scoreColor;
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 6;
+  ctx.fillText('1 250', W - 14, 48);
+  ctx.shadowBlur = 0;
+
+  ctx.textAlign = 'left';
+}
+
+// Wait for fonts to load
+document.fonts.ready.then(() => {
+  drawHUD(document.getElementById('cA'), "'Press Start 2P'", "'Press Start 2P'", '18px', '10px', '#ffffff', 'rgba(255,255,255,0.6)');
+  drawHUD(document.getElementById('cB'), "'Silkscreen'",     "'Silkscreen'",     '22px', '13px', '#ffffff', 'rgba(255,255,255,0.6)');
+  drawHUD(document.getElementById('cC'), "'VT323'",          "'VT323'",          '32px', '20px', '#ffffff', 'rgba(255,255,255,0.6)');
+  drawHUD(document.getElementById('cD'), "'Pixelify Sans'",  "'Pixelify Sans'",  '24px', '14px', '#ffffff', 'rgba(255,255,255,0.6)');
+});
+</script>
+</body>
+</html>

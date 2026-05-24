@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Is-element – förslag</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#0d0d1a; color:white;
+  font-family:'Courier New',monospace;
+  display:flex; flex-direction:column; align-items:center;
+  padding:24px 16px; gap:28px;
+}
+h1 { color:#aaddff; font-size:15px; letter-spacing:2px; }
+h2 { color:#88ccff; font-size:13px; letter-spacing:1px; margin-bottom:12px; border-bottom:1px solid #1a2a3a; padding-bottom:6px; }
+.sub { color:#445; font-size:10px; }
+.section { width:660px; }
+.row { display:flex; gap:14px; flex-wrap:wrap; }
+.card { background:#111828; border:2px solid #1a2a40; border-radius:5px; padding:12px; }
+.card h3 { font-size:11px; color:#ffcc66; margin-bottom:2px; }
+.card p  { font-size:9px; color:#446; margin-bottom:10px; }
+canvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges; }
+.states { font-size:9px; color:#336; display:flex; justify-content:space-around; margin-top:4px; }
+</style>
+</head>
+<body>
+<h1>IS-ELEMENT – VÄLJ DESIGN</h1>
+<p class="sub">Present · Ismätare · Isexplosion</p>
+
+<!-- ═══════════════════════════════════ PRESENT ═══════════════════════════════ -->
+<div class="section">
+<h2>1. PRESENT – välj A B C D</h2>
+<div class="row">
+  <div class="card"><h3>A) Klassisk present</h3><p>Låda med kryss-band och rosett · ren pixel-art</p><canvas id="gA" width="120" height="80"></canvas></div>
+  <div class="card"><h3>B) Stjärn-present</h3><p>Glänsande stjärnform · magisk känsla</p><canvas id="gB" width="120" height="80"></canvas></div>
+  <div class="card"><h3>C) Prick-låda</h3><p>Färgglad låda med prickar · lekfull</p><canvas id="gC" width="120" height="80"></canvas></div>
+  <div class="card"><h3>D) Skattkista</h3><p>Trä-kista med beslag · äventyrskänsla</p><canvas id="gD" width="120" height="80"></canvas></div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════ ISMÄTARE ══════════════════════════════ -->
+<div class="section">
+<h2>2. ISMÄTARE – välj A B C D</h2>
+<div class="row">
+  <div class="card"><h3>A) Isblock-stapel</h3><p>Samma form som eldmätaren · mörk→ljusblå · snöflinga på topp</p><canvas id="mA" width="310" height="80"></canvas><div class="states"><span>0%</span><span>50%</span><span>100%</span></div></div>
+  <div class="card"><h3>B) Kristall-spikar</h3><p>Spikar växer upp som iskristaller</p><canvas id="mB" width="310" height="80"></canvas><div class="states"><span>0%</span><span>50%</span><span>100%</span></div></div>
+</div>
+<div class="row" style="margin-top:14px">
+  <div class="card"><h3>C) Snöflinge-segment</h3><p>Ring av snöflingepixlar som tänds</p><canvas id="mC" width="310" height="80"></canvas><div class="states"><span>0%</span><span>50%</span><span>100%</span></div></div>
+  <div class="card"><h3>D) Diamant-shard</h3><p>Diamantform fylls med isskärvor</p><canvas id="mD" width="310" height="80"></canvas><div class="states"><span>0%</span><span>50%</span><span>100%</span></div></div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════ ISEXPLOSION ══════════════════════════ -->
+<div class="section">
+<h2>3. ISEXPLOSION – välj A B C D</h2>
+<div class="row">
+  <div class="card"><h3>A) Fryser + krossas</h3><p>Fienden fryser till is-block sedan krossas i pixlar</p><canvas id="eA" width="150" height="130" style="background:#0d0d1a"></canvas></div>
+  <div class="card"><h3>B) Isskärve-burst</h3><p>Isskärvor flyger ut som explosion · blå/vit</p><canvas id="eB" width="150" height="130" style="background:#0d0d1a"></canvas></div>
+  <div class="card"><h3>C) Snöflinge-burst</h3><p>Snöflinga expanderar sedan fienden faller som snö</p><canvas id="eC" width="150" height="130" style="background:#0d0d1a"></canvas></div>
+  <div class="card"><h3>D) Kristall-implosion</h3><p>Fienden dras ihop till iskristall sen exploderar</p><canvas id="eD" width="150" height="130" style="background:#0d0d1a"></canvas></div>
+</div>
+</div>
+
+<script>
+const P = 4;
+function seeded(seed) {
+  let s = seed;
+  return () => { s = (s*1664525+1013904223)&0xffffffff; return (s>>>0)/0xffffffff; };
+}
+function easeOut(t){ return 1-Math.pow(1-t,2); }
+function easeIn(t) { return t*t; }
+
+// ════════════════════════════════════════════════════════════ PRESENTS ════════
+
+// A: Classic present
+{
+  const ctx = document.getElementById('gA').getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const ox=16, oy=12;
+  // Box
+  ctx.fillStyle='#cc3366'; ctx.fillRect(ox,oy+5*P,10*P,6*P);     // box body
+  ctx.fillStyle='#991144'; ctx.fillRect(ox,oy+9*P,10*P,2*P);     // shadow bottom
+  ctx.fillStyle='#ff5588'; ctx.fillRect(ox,oy+5*P,10*P,P);       // shine top
+  // Ribbon cross
+  ctx.fillStyle='#ffdd44';
+  ctx.fillRect(ox+4*P,oy+5*P,2*P,6*P);  // vertical band
+  ctx.fillRect(ox,oy+7*P,10*P,2*P);     // horizontal band
+  ctx.fillStyle='#ffaa00';
+  ctx.fillRect(ox+4*P,oy+7*P,2*P,2*P); // cross center
+  // Bow loops
+  ctx.fillStyle='#ffdd44';
+  ctx.fillRect(ox+P,oy+2*P,3*P,3*P);   // left loop
+  ctx.fillRect(ox+6*P,oy+2*P,3*P,3*P); // right loop
+  ctx.fillStyle='#ffaa00';
+  ctx.fillRect(ox+P,oy+4*P,3*P,P);     // loop shadow
+  ctx.fillRect(ox+6*P,oy+4*P,3*P,P);
+  ctx.fillStyle='#ffee88';
+  ctx.fillRect(ox+2*P,oy+2*P,P,P);     // shine in loop
+  ctx.fillRect(ox+7*P,oy+2*P,P,P);
+  // Bow knot
+  ctx.fillStyle='#ffcc00';
+  ctx.fillRect(ox+4*P,oy+3*P,2*P,2*P);
+  // Outline
+  ctx.strokeStyle='#220011'; ctx.lineWidth=1;
+  ctx.strokeRect(ox+0.5,oy+5*P+0.5,10*P-1,6*P-1);
+  // Sparkle
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(ox+8*P,oy,P,P);
+  ctx.fillRect(ox+9*P,oy+P,P,P);
+  ctx.fillRect(ox+8*P,oy+2*P,P,P);
+}
+
+// B: Star present
+{
+  const ctx = document.getElementById('gB').getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const ox=10, oy=8;
+  // Star pixel shape (diamond + cross)
+  const star = [
+    [0,4,5],[1,3,6],[2,2,7],[3,1,8],[4,0,9],[5,0,9],[6,1,8],[7,2,7],[8,3,6],[9,4,5],
+    [2,4,5],[3,4,5],[6,4,5],[7,4,5],
+  ];
+  // Glow
+  ctx.globalAlpha=0.3; ctx.fillStyle='#aaddff';
+  for(const[gy,x0,x1]of star) ctx.fillRect(ox+(x0-1)*P, oy+gy*P, (x1-x0+3)*P, P);
+  ctx.globalAlpha=1;
+  // Body
+  ctx.fillStyle='#3399ff';
+  for(const[gy,x0,x1]of star) ctx.fillRect(ox+x0*P, oy+gy*P, (x1-x0+1)*P, P);
+  // Highlights
+  ctx.fillStyle='#88ccff';
+  for(const[gy,x0,x1]of star) { ctx.fillRect(ox+x0*P, oy+gy*P, P, P); }
+  ctx.fillStyle='#001133';
+  for(const[gy,x0,x1]of star) { ctx.fillRect(ox+x1*P, oy+gy*P, P, P); }
+  // Ribbon
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(ox+4*P,oy+3*P,2*P,4*P);
+  ctx.fillRect(ox+2*P,oy+4*P,6*P,2*P);
+  // Sparkles
+  ctx.fillStyle='#ffffff';
+  [[ox+2,oy+1],[ox+9*P,oy+2],[ox,oy+6*P],[ox+10*P,oy+7*P]].forEach(([x,y])=>{
+    ctx.fillRect(x,y,P,P); ctx.fillRect(x-P,y,P/2,P/2); ctx.fillRect(x,y-P,P/2,P/2);
+  });
+}
+
+// C: Polka dot box
+{
+  const ctx = document.getElementById('gC').getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const ox=16, oy=10;
+  // Lid
+  ctx.fillStyle='#5522cc'; ctx.fillRect(ox-P,oy,12*P,3*P);
+  ctx.fillStyle='#7744ee'; ctx.fillRect(ox-P,oy,12*P,P);
+  // Box body
+  ctx.fillStyle='#4411aa'; ctx.fillRect(ox,oy+3*P,10*P,7*P);
+  ctx.fillStyle='#6633cc'; ctx.fillRect(ox,oy+3*P,10*P,P);
+  ctx.fillStyle='#330088'; ctx.fillRect(ox,oy+8*P,10*P,2*P);
+  // Polka dots
+  const dots=[[P,5*P,'#ff4488'],[3*P,7*P,'#ffdd00'],[6*P,5*P,'#44ffaa'],[8*P,7*P,'#ff8833'],[2*P,4*P,'#ffffff'],[7*P,4*P,'#ffaaff']];
+  for(const[dx,dy,c]of dots){ctx.fillStyle=c; ctx.fillRect(ox+dx,oy+dy,P,P);}
+  // Gold ribbon
+  ctx.fillStyle='#ffcc00';
+  ctx.fillRect(ox+4*P,oy,2*P,10*P);
+  ctx.fillStyle='#ffaa00';
+  ctx.fillRect(ox+4*P,oy+3*P,2*P,7*P);
+  // Bow
+  ctx.fillStyle='#ffee44';
+  ctx.fillRect(ox+P,oy-2*P,3*P,3*P);
+  ctx.fillRect(ox+6*P,oy-2*P,3*P,3*P);
+  ctx.fillRect(ox+4*P,oy-P,2*P,2*P);
+  ctx.fillStyle='#ffcc00';
+  ctx.fillRect(ox+P,oy+P,3*P,P);
+  ctx.fillRect(ox+6*P,oy+P,3*P,P);
+  // Outline
+  ctx.strokeStyle='#110033'; ctx.lineWidth=1;
+  ctx.strokeRect(ox+0.5,oy+3*P+0.5,10*P-1,7*P-1);
+}
+
+// D: Treasure chest
+{
+  const ctx = document.getElementById('gD').getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const ox=12, oy=8;
+  // Chest lid (arched top)
+  ctx.fillStyle='#8b5e2a';
+  ctx.fillRect(ox,oy+2*P,11*P,3*P);
+  ctx.fillRect(ox+P,oy+P,9*P,P);
+  ctx.fillRect(ox+2*P,oy,7*P,P);
+  // Lid highlight
+  ctx.fillStyle='#b07a3a';
+  ctx.fillRect(ox+P,oy+2*P,2*P,2*P);
+  // Chest body
+  ctx.fillStyle='#7a4a1a';
+  ctx.fillRect(ox,oy+5*P,11*P,5*P);
+  ctx.fillStyle='#5a3a0a';
+  ctx.fillRect(ox,oy+8*P,11*P,2*P);
+  // Metal band
+  ctx.fillStyle='#bbaa66';
+  ctx.fillRect(ox,oy+5*P,11*P,P);
+  // Metal clasps
+  ctx.fillStyle='#ddcc77';
+  ctx.fillRect(ox+4*P,oy+4*P,3*P,3*P);
+  ctx.fillStyle='#aa9933';
+  ctx.fillRect(ox+5*P,oy+5*P,P,P); // keyhole
+  ctx.fillStyle='#000';
+  ctx.fillRect(ox+5*P,oy+5*P,P,P);
+  // Corner studs
+  ctx.fillStyle='#ccbb55';
+  [[0,5*P],[0,8*P],[10*P,5*P],[10*P,8*P]].forEach(([dx,dy])=>{
+    ctx.fillRect(ox+dx,oy+dy,P,P);
+  });
+  // Wood grain lines
+  ctx.fillStyle='#6a3a0a';
+  ctx.fillRect(ox+3*P,oy+6*P,P,3*P);
+  ctx.fillRect(ox+7*P,oy+6*P,P,3*P);
+  // Outline
+  ctx.strokeStyle='#2a1a00'; ctx.lineWidth=1;
+  ctx.strokeRect(ox+0.5,oy+5*P+0.5,11*P-1,5*P-1);
+  // Glow hint
+  ctx.globalAlpha=0.25; ctx.fillStyle='#ffdd44';
+  ctx.fillRect(ox+4*P,oy+4*P,3*P,3*P);
+  ctx.globalAlpha=1;
+}
+
+// ════════════════════════════════════════════════════════════ ICE METERS ══════
+
+// Helper: draw HUD-style background
+function iceBG(ctx,w,h){
+  ctx.fillStyle='#0d0d1a'; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle='#0a1020'; ctx.fillRect(0,h*0.5,w,h);
+}
+
+// A: Ice block bar (like flame bar but icy)
+{
+  const ctx=document.getElementById('mA').getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  iceBG(ctx,310,80);
+
+  function drawIceBar(ox,oy,fill){
+    const NB=10,BW=2*P,BH=5*P;
+    const filled=Math.round(fill*NB);
+    function blockCol(i){
+      if(i<3)return'#001855';
+      if(i<6)return'#0044aa';
+      if(i<8)return'#0088dd';
+      return'#44ccff';
+    }
+    ctx.fillStyle='#050a1a'; ctx.fillRect(ox-2,oy-2,NB*BW+4,BH+4);
+    for(let i=0;i<NB;i++){
+      const bx=ox+i*BW;
+      ctx.fillStyle=i<filled?blockCol(i):'#0a0a20';
+      ctx.fillRect(bx,oy,BW,BH);
+      if(i<filled){
+        ctx.fillStyle='rgba(180,240,255,0.35)';
+        ctx.fillRect(bx,oy,BW,P);
+      }
+      ctx.fillStyle='#050a1a';
+      if(i<NB-1) ctx.fillRect(bx+BW-1,oy,1,BH);
+    }
+    // Snowflake on top when full
+    if(fill>=1){
+      const fx=ox+3*BW, fy=oy-6*P;
+      const flake=[
+        [0,2,'#aaddff'],[0,3,'#aaddff'],
+        [1,0,'#aaddff'],[1,2,'#ffffff'],[1,3,'#ffffff'],[1,5,'#aaddff'],
+        [2,1,'#aaddff'],[2,2,'#88ccff'],[2,3,'#88ccff'],[2,4,'#aaddff'],
+        [3,1,'#aaddff'],[3,2,'#88ccff'],[3,3,'#88ccff'],[3,4,'#aaddff'],
+        [4,0,'#aaddff'],[4,2,'#ffffff'],[4,3,'#ffffff'],[4,5,'#aaddff'],
+        [5,2,'#aaddff'],[5,3,'#aaddff'],
+      ];
+      for(const[gy,gx,c]of flake){ctx.fillStyle=c;ctx.fillRect(fx+gx*P,fy+gy*P,P,P);}
+    }
+  }
+  drawIceBar(4,30,0);
+  drawIceBar(108,30,0.5);
+  drawIceBar(212,30,1.0);
+}
+
+// B: Crystal spike bar
+{
+  const ctx=document.getElementById('mB').getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  iceBG(ctx,310,80);
+
+  function drawSpikeBar(ox,oy,fill){
+    const NB=10,BW=2*P,BH=5*P;
+    const filled=Math.round(fill*NB);
+    ctx.fillStyle='#050a1a'; ctx.fillRect(ox-2,oy-2,NB*BW+4,BH+4);
+    for(let i=0;i<NB;i++){
+      const bx=ox+i*BW;
+      if(i<filled){
+        // Crystal spike shape
+        ctx.fillStyle=i<3?'#1155cc':i<7?'#33aaee':'#88ddff';
+        ctx.fillRect(bx,oy,BW,BH);
+        ctx.fillRect(bx,oy-P,BW,P); // spike
+        if(i%2===0) ctx.fillRect(bx,oy-2*P,P,P); // sharp tip
+        ctx.fillStyle='rgba(200,240,255,0.4)';
+        ctx.fillRect(bx,oy,P,BH);
+      } else {
+        ctx.fillStyle='#0a1428';
+        ctx.fillRect(bx,oy,BW,BH);
+      }
+      ctx.fillStyle='#050a1a';
+      if(i<NB-1) ctx.fillRect(bx+BW-1,oy,1,BH);
+    }
+    // Ready sparkle
+    if(fill>=1){
+      ctx.fillStyle='#ffffff';
+      for(const[dx,dy]of[[-P,-3*P],[NB*BW+P,-2*P],[NB*BW/2,-3*P]]){
+        ctx.fillRect(ox+dx,oy+dy,P,P);
+      }
+    }
+  }
+  drawSpikeBar(4,40,0);
+  drawSpikeBar(108,40,0.5);
+  drawSpikeBar(212,40,1.0);
+}
+
+// C: Snowflake segment ring
+{
+  const ctx=document.getElementById('mC').getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  iceBG(ctx,310,80);
+
+  // 12 dot positions in a ring
+  const segs=[[5,0],[7,0],[9,1],[10,3],[10,5],[9,7],[7,8],[5,8],[3,7],[2,5],[2,3],[3,1]];
+  function segCol(i){
+    const t=i/12;
+    if(t<0.33)return'#0033aa';
+    if(t<0.66)return'#0077cc';
+    return'#44bbff';
+  }
+  function drawFlakeRing(ox,oy,fill){
+    const S=P,filled=Math.round(fill*12);
+    for(let i=0;i<12;i++){
+      const[gx,gy]=segs[i];
+      ctx.fillStyle='#0a0a20';
+      ctx.fillRect((ox+gx-1)*S,(oy+gy-1)*S,3*S,3*S);
+      ctx.fillStyle=i<filled?segCol(i):'#0a1428';
+      ctx.fillRect((ox+gx)*S,(oy+gy)*S,S,S);
+    }
+    // Center snowflake
+    ctx.fillStyle=fill>0?'#2288cc':'#111';
+    for(const[dx,dy]of[[0,-2],[0,2],[-2,0],[2,0],[-1,-1],[1,-1],[-1,1],[1,1],[0,0]]){
+      ctx.fillRect((ox+5+dx)*S,(oy+4+dy)*S,S,S);
+    }
+    if(fill>=1){
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect((ox+5)*S,(oy+1)*S,S,S);
+    }
+  }
+  drawFlakeRing(1,1,0);
+  drawFlakeRing(14,1,0.5);
+  drawFlakeRing(27,1,1.0);
+}
+
+// D: Diamond shard fill
+{
+  const ctx=document.getElementById('mD').getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  iceBG(ctx,310,80);
+
+  const gemSegs=[
+    [[0,3]],
+    [[1,2],[1,3],[1,4]],
+    [[2,1],[2,2],[2,3],[2,4],[2,5],[3,1],[3,2],[3,3],[3,4],[3,5]],
+    [[4,0],[4,1],[4,2],[4,3],[4,4],[4,5],[4,6],[5,0],[5,1],[5,2],[5,3],[5,4],[5,5],[5,6]],
+    [[6,1],[6,2],[6,3],[6,4],[6,5],[7,2],[7,3],[7,4],[8,3]],
+  ];
+  const gemCols=[
+    ['#aaddff','#88bbdd'],
+    ['#88ccff','#55aadd'],
+    ['#55aaee','#2288cc'],
+    ['#2288cc','#0066aa'],
+    ['#0066aa','#003377'],
+  ];
+  const outline=[[0,2],[0,4],[1,1],[1,5],[2,0],[2,6],[3,0],[3,6],[4,7],[5,7],[5,0],[4,0],[6,0],[6,6],[7,1],[7,5],[8,2],[8,4]];
+  const S=P;
+  function drawDiamond(ox,oy,fill){
+    const filled=Math.round(fill*5);
+    ctx.fillStyle='#0a0a20';
+    for(const[r,c]of outline) ctx.fillRect((ox+c)*S,(oy+r)*S,S,S);
+    for(let s=0;s<5;s++){
+      const lit=s<filled;
+      for(const[r,c]of gemSegs[s]){
+        ctx.fillStyle=lit?gemCols[s][0]:'#0a1428';
+        ctx.fillRect((ox+c)*S,(oy+r)*S,S,S);
+      }
+      if(lit){
+        for(const[r,c]of gemSegs[s]){
+          const row=gemSegs[s].filter(p=>p[0]===r);
+          if(c===Math.max(...row.map(p=>p[1]))){
+            ctx.fillStyle=gemCols[s][1];
+            ctx.fillRect((ox+c)*S,(oy+r)*S,S,S);
+          }
+        }
+      }
+    }
+    if(filled>0){ctx.fillStyle='rgba(180,240,255,0.6)';ctx.fillRect((ox+3)*S,(oy)*S,S,S);}
+    if(fill>=1){ctx.fillStyle='#ffffff';ctx.fillRect((ox+3)*S,(oy-1)*S,S,S);ctx.fillRect((ox)*S,(oy+4)*S,S,S);ctx.fillRect((ox+7)*S,(oy+4)*S,S,S);}
+  }
+  drawDiamond(1,1,0);
+  drawDiamond(13,1,0.5);
+  drawDiamond(25,1,1.0);
+}
+
+// ════════════════════════════════════════════════════════════ ICE EXPLOSIONS ══
+
+const CYCLE=140;
+
+function groundLine(ctx,w,h){
+  ctx.fillStyle='#99dd66'; ctx.fillRect(0,h-26,w,4);
+  ctx.fillStyle='#77bb44'; ctx.fillRect(0,h-22,w,22);
+}
+function drawSilhouette(ctx,x,y,col,alpha){
+  ctx.globalAlpha=alpha; ctx.fillStyle=col;
+  ctx.fillRect(x-6,y-28,12,20); // body
+  ctx.fillRect(x-5,y-44,10,14); // head
+  ctx.fillRect(x-8,y-48,4,6);   // ears
+  ctx.fillRect(x+4,y-48,4,6);
+  ctx.globalAlpha=1;
+}
+
+// A: Freeze → shatter
+{
+  const canvas=document.getElementById('eA');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,GY=H-26;
+  const cx=W/2,cy=GY;
+  const rng=seeded(11);
+  const shards=Array.from({length:20},()=>({
+    ox:(rng()-0.5)*20, angle:rng()*Math.PI*2,
+    spd:rng()*2.5+0.8, size:Math.floor(rng()*4)+2,
+    col:rng()>0.5?'#aaddff':rng()>0.5?'#ffffff':'#0088cc',
+    delay:rng()*15|0,
+  }));
+  let t=0;
+  function drawA(){
+    t=(t+1)%CYCLE; const p=t/CYCLE;
+    ctx.fillStyle='#0d0d1a'; ctx.fillRect(0,0,W,H); groundLine(ctx,W,H);
+    if(p<0.12){
+      drawSilhouette(ctx,cx,cy,'#44bb55',1);
+    } else if(p<0.30){
+      // Freeze solid — goblin turns ice blue
+      const fp=(p-0.12)/0.18;
+      const r=Math.floor(fp*255*0.3)|0, g=Math.floor(fp*255*0.5+255*(1-fp)*0.73)|0;
+      const col=`rgb(${Math.round((1-fp)*68)},${Math.round((1-fp)*187+fp*180)},${Math.round(fp*255)})`;
+      drawSilhouette(ctx,cx,cy,col,1);
+      // Ice cracks overlay
+      if(fp>0.4){
+        ctx.globalAlpha=(fp-0.4)/0.6*0.8;
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(cx-3,cy-42,2,14); ctx.fillRect(cx+2,cy-38,2,10);
+        ctx.fillRect(cx-5,cy-24,2,8);  ctx.fillRect(cx+1,cy-20,3,6);
+        ctx.globalAlpha=1;
+      }
+    } else if(p<0.42){
+      // Ice block
+      const ip=(p-0.30)/0.12;
+      ctx.fillStyle='#0055aa'; ctx.fillRect(cx-14,cy-50,28,50);
+      ctx.fillStyle='#4499cc'; ctx.fillRect(cx-14,cy-50,28,6);
+      ctx.fillStyle='#0033aa'; ctx.fillRect(cx-14,cy-4,28,4);
+      ctx.globalAlpha=0.4; ctx.fillStyle='#aaddff'; ctx.fillRect(cx-10,cy-46,8,40); ctx.globalAlpha=1;
+      // Crack before shatter
+      if(ip>0.6){
+        ctx.fillStyle='#aaddff';
+        ctx.fillRect(cx-2,cy-50,2,50); ctx.fillRect(cx+4,cy-40,2,30);
+      }
+    } else if(p<0.75){
+      // Shatter — shards fly out
+      const sp=(p-0.42)/0.33;
+      for(const s of shards){
+        const dl=s.delay/CYCLE*0.33;
+        if(sp<dl) continue;
+        const lp=Math.min((sp-dl)/0.6,1);
+        const x=cx+s.ox+Math.cos(s.angle)*s.spd*lp*40;
+        const y=cy-25+Math.sin(s.angle)*s.spd*lp*30+easeIn(lp)*60;
+        if(y>GY+4) continue;
+        ctx.globalAlpha=Math.max(0,1-lp*0.9);
+        ctx.fillStyle=s.col; ctx.fillRect(x,y,s.size,s.size);
+      }
+      ctx.globalAlpha=1;
+    }
+    requestAnimationFrame(drawA);
+  }
+  drawA();
+}
+
+// B: Ice shard burst
+{
+  const canvas=document.getElementById('eB');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,GY=H-26;
+  const cx=W/2,cy=GY;
+  const rng=seeded(22);
+  const shards=Array.from({length:24},()=>({
+    angle:rng()*Math.PI*2, spd:rng()*3+2,
+    size:Math.floor(rng()*6)+3,
+    col:['#aaddff','#ffffff','#55aadd','#0088cc','#cceeFF'][Math.floor(rng()*5)],
+    delay:rng()*8|0,
+  }));
+  let t=0;
+  function drawB(){
+    t=(t+1)%CYCLE; const p=t/CYCLE;
+    ctx.fillStyle='#0d0d1a'; ctx.fillRect(0,0,W,H); groundLine(ctx,W,H);
+    if(p<0.12){
+      drawSilhouette(ctx,cx,cy,'#44bb55',1);
+    } else if(p<0.22){
+      // Impact flash — white/blue
+      const ep=(p-0.12)/0.10;
+      drawSilhouette(ctx,cx,cy,'#ffffff',1-ep*0.6);
+      ctx.globalAlpha=ep*0.7; ctx.fillStyle='#aaddff';
+      ctx.fillRect(cx-30,cy-55,60,55); ctx.globalAlpha=1;
+    } else if(p<0.50){
+      // Ice burst ring (pixel dots in ring)
+      const rp=(p-0.22)/0.28;
+      const r=easeOut(rp)*50;
+      for(let a=0;a<16;a++){
+        const ang=(a/16)*Math.PI*2;
+        const px=cx+Math.cos(ang)*r, py=cy-25+Math.sin(ang)*r*0.7;
+        const c=a%3===0?'#ffffff':a%3===1?'#88ccff':'#3399cc';
+        ctx.globalAlpha=Math.max(0,1-rp*0.7);
+        ctx.fillStyle=c; ctx.fillRect(px-4,py-4,8,8);
+      }
+      ctx.globalAlpha=1;
+    }
+    // Shards
+    if(p>=0.14){
+      const dp=(p-0.14)/0.86;
+      for(const d of shards){
+        const dl=d.delay/CYCLE;
+        if(dp<dl) continue;
+        const lp=Math.min((dp-dl)/0.65,1);
+        const x=cx+Math.cos(d.angle)*d.spd*lp*52;
+        const y=cy-28+Math.sin(d.angle)*d.spd*lp*35+easeIn(lp)*85;
+        if(y>GY+4) continue;
+        ctx.globalAlpha=Math.max(0,1-lp*0.85);
+        ctx.fillStyle=d.col; ctx.fillRect(x,y,d.size,d.size);
+      }
+      ctx.globalAlpha=1;
+    }
+    requestAnimationFrame(drawB);
+  }
+  drawB();
+}
+
+// C: Snowflake burst
+{
+  const canvas=document.getElementById('eC');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,GY=H-26;
+  const cx=W/2,cy=GY;
+  const rng=seeded(33);
+  const snowflakes=Array.from({length:28},()=>({
+    ox:(rng()-0.5)*30, vx:(rng()-0.5)*1.5,
+    vy:-(rng()*2+0.5), size:Math.floor(rng()*3)+2,
+    col:rng()>0.6?'#ffffff':'#aaddff',
+    delay:rng()*18|0,
+  }));
+  let t=0;
+  function drawC(){
+    t=(t+1)%CYCLE; const p=t/CYCLE;
+    ctx.fillStyle='#0d0d1a'; ctx.fillRect(0,0,W,H); groundLine(ctx,W,H);
+    if(p<0.12){
+      drawSilhouette(ctx,cx,cy,'#44bb55',1);
+    } else if(p<0.28){
+      const bp=(p-0.12)/0.16;
+      const col=`hsl(${180-bp*40},${80}%,${50+bp*20}%)`;
+      drawSilhouette(ctx,cx,cy,col,1-bp*0.4);
+    }
+    // Expanding snowflake star pattern
+    if(p>=0.14 && p<0.55){
+      const rp=(p-0.14)/0.41;
+      const r=easeOut(rp)*52;
+      ctx.globalAlpha=Math.max(0,1-rp);
+      // 8 arms of snowflake
+      for(let arm=0;arm<8;arm++){
+        const ang=(arm/8)*Math.PI*2;
+        for(let seg=0;seg<4;seg++){
+          const dist=r*(seg+1)/4;
+          const px=cx+Math.cos(ang)*dist, py=cy-25+Math.sin(ang)*dist*0.65;
+          ctx.fillStyle=seg<2?'#ffffff':'#88ccff';
+          ctx.fillRect(px-3,py-3,6,6);
+          // Side branches
+          if(seg===1||seg===2){
+            const bx=cx+Math.cos(ang+0.6)*(dist*0.7), by=cy-25+Math.sin(ang+0.6)*(dist*0.65*0.7);
+            ctx.fillStyle='#aaddff'; ctx.fillRect(bx-2,by-2,4,4);
+          }
+        }
+      }
+      ctx.globalAlpha=1;
+    }
+    // Snow particles fall
+    if(p>=0.22){
+      const ap=(p-0.22)/0.78;
+      for(const s of snowflakes){
+        const dl=s.delay/CYCLE;
+        if(ap<dl) continue;
+        const lp=Math.min((ap-dl)/0.65,1);
+        const x=cx+s.ox+s.vx*lp*45;
+        const y=cy-30+s.vy*lp*35+easeIn(lp)*75;
+        if(y>GY+4) continue;
+        ctx.globalAlpha=Math.max(0,1-lp*0.8);
+        ctx.fillStyle=s.col; ctx.fillRect(x,y,s.size,s.size);
+      }
+      ctx.globalAlpha=1;
+    }
+    requestAnimationFrame(drawC);
+  }
+  drawC();
+}
+
+// D: Crystal implosion
+{
+  const canvas=document.getElementById('eD');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,GY=H-26;
+  const cx=W/2,cy=GY;
+  const rng=seeded(44);
+  const crystals=Array.from({length:32},()=>({
+    ox:(rng()-0.5)*55, vx:(rng()-0.5)*0.7,
+    vy:(rng()*0.4+0.2), size:Math.floor(rng()*3)+1,
+    col:rng()>0.5?'#88ccff':rng()>0.5?'#aaddff':'#ffffff',
+    startY:-(rng()*50+8), delay:rng()*28|0,
+  }));
+  let t=0;
+  function drawD(){
+    t=(t+1)%CYCLE; const p=t/CYCLE;
+    ctx.fillStyle='#0d0d1a'; ctx.fillRect(0,0,W,H); groundLine(ctx,W,H);
+    if(p<0.10){
+      drawSilhouette(ctx,cx,cy,'#44bb55',1);
+    } else if(p<0.20){
+      // Implode — shrinks to blue crystal
+      const ip=(p-0.10)/0.10;
+      const sc=1-ip*0.65;
+      ctx.save(); ctx.translate(cx,cy-24); ctx.scale(sc,sc);
+      const c=`hsl(${lerp(140,200,ip)},${lerp(70,90,ip)}%,${lerp(50,70,ip)}%)`;
+      drawSilhouette(ctx,0,24,c,1);
+      ctx.restore();
+      // Inward rings
+      for(let r=2;r>=0;r--){
+        ctx.globalAlpha=(1-ip)*0.45;
+        ctx.strokeStyle='#aaddff'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(cx,cy-24,(3-r)*10*(1-ip),0,Math.PI*2); ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    } else if(p<0.26){
+      // Blue flash
+      const fp=(p-0.20)/0.06;
+      ctx.globalAlpha=Math.max(0,(1-fp)*0.8);
+      ctx.fillStyle='#aaddff'; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+    }
+    // Crystal rain
+    if(p>=0.22){
+      const ap=(p-0.22)/0.78;
+      for(const a of crystals){
+        const dl=a.delay/CYCLE;
+        if(ap<dl) continue;
+        const lp=Math.min((ap-dl)/0.78,1);
+        const x=cx+a.ox+a.vx*lp*28;
+        const y=cy-25+a.startY+easeIn(lp)*95+a.vy*lp*35;
+        if(y>GY+4) continue;
+        ctx.globalAlpha=Math.max(0,1-lp*0.7);
+        ctx.fillStyle=a.col; ctx.fillRect(x,y,a.size,a.size);
+      }
+      ctx.globalAlpha=1;
+    }
+    requestAnimationFrame(drawD);
+  }
+  drawD();
+}
+
+function lerp(a,b,t){return a+(b-a)*t;}
+</script>
+</body>
+</html>

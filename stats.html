@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Blob Knight – Säsong 1 Statistik</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0b1e;
+    color: white;
+    font-family: 'Press Start 2P', monospace;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    font-size: 18px;
+    color: #cc77ff;
+    text-shadow: 0 0 20px #aa44ff;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 8px;
+    color: rgba(200,150,255,0.5);
+    margin-bottom: 48px;
+  }
+  .chart-section {
+    max-width: 900px;
+    margin: 0 auto 60px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(170,68,255,0.3);
+    border-radius: 4px;
+    padding: 32px;
+  }
+  .chart-title {
+    font-size: 10px;
+    color: #FFD700;
+    margin-bottom: 6px;
+  }
+  .chart-desc {
+    font-size: 7px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 28px;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 320px;
+  }
+  .total-badge {
+    display: inline-block;
+    background: rgba(170,68,255,0.2);
+    border: 1px solid #aa44ff;
+    color: #cc88ff;
+    font-size: 7px;
+    padding: 6px 14px;
+    margin-bottom: 24px;
+  }
+</style>
+</head>
+<body>
+
+<h1>BLOB KNIGHT</h1>
+<p class="subtitle">Säsong 1 Statistik</p>
+
+<!-- GRAF 1: Spel per vecka -->
+<div class="chart-section">
+  <div class="chart-title">Antal spel per vecka</div>
+  <div class="chart-desc">Totalt 1 158 omgångar registrerade under Säsong 1</div>
+  <div class="total-badge">TOTALT: 1 158 SPEL</div>
+  <div class="chart-wrap">
+    <canvas id="weekChart"></canvas>
+  </div>
+</div>
+
+<!-- GRAF 2: Spel per spelare (topp 20) -->
+<div class="chart-section">
+  <div class="chart-title">Mest aktiva spelare – Topp 20</div>
+  <div class="chart-desc">Antal spelade omgångar per spelare</div>
+  <div class="chart-wrap" style="height:420px">
+    <canvas id="playerChart"></canvas>
+  </div>
+</div>
+
+<script>
+const weekLabels = [
+  'v.13 (23 mar)', 'v.14 (30 mar)', 'v.15 (6 apr)',
+  'v.16 (13 apr)', 'v.17 (20 apr)', 'v.18 (27 apr)',
+  'v.19 (4 maj)', 'v.20 (11 maj)'
+];
+const weekData = [17, 210, 1, 2, 159, 158, 4, 28];
+
+const playerLabels = [
+  'ANTONJV','KN0TT','SIGGE','ELSA','OLIVER,S','BOLIVER',
+  'PHILIP','LINNEA','OSCIS','SIMÅÅÅN','FLOPPIE','ANTON',
+  'LINUS','MALTEEEEEE','RECORD','MONA','THEGOAT','TEST','ZIA','JOHNPORK'
+];
+const playerData = [110,62,47,29,26,26,22,18,17,16,15,15,13,10,8,8,7,6,6,6];
+
+// Färger per bar (gradient från guld → lila)
+function barColors(n, alpha = 0.85) {
+  return Array.from({length: n}, (_, i) => {
+    const t = i / (n - 1);
+    const r = Math.round(255 - t * 80);
+    const g = Math.round(215 - t * 170);
+    const b = Math.round(0   + t * 255);
+    return `rgba(${r},${g},${b},${alpha})`;
+  });
+}
+
+// Graf 1 – veckor
+new Chart(document.getElementById('weekChart'), {
+  type: 'bar',
+  data: {
+    labels: weekLabels,
+    datasets: [{
+      label: 'Antal spel',
+      data: weekData,
+      backgroundColor: barColors(weekData.length),
+      borderColor: barColors(weekData.length, 1),
+      borderWidth: 1,
+      borderRadius: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a0a2e',
+        borderColor: '#aa44ff',
+        borderWidth: 1,
+        titleFont: { family: "'Press Start 2P'", size: 9 },
+        bodyFont:  { family: "'Press Start 2P'", size: 9 },
+        callbacks: { label: ctx => ' ' + ctx.raw + ' spel' }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { font: { family: "'Press Start 2P'", size: 7 }, color: 'rgba(255,255,255,0.6)' }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.07)' },
+        ticks: { font: { family: "'Press Start 2P'", size: 7 }, color: 'rgba(255,255,255,0.6)' },
+        beginAtZero: true
+      }
+    }
+  }
+});
+
+// Graf 2 – spelare
+new Chart(document.getElementById('playerChart'), {
+  type: 'bar',
+  data: {
+    labels: playerLabels,
+    datasets: [{
+      label: 'Antal spel',
+      data: playerData,
+      backgroundColor: barColors(playerData.length),
+      borderColor: barColors(playerData.length, 1),
+      borderWidth: 1,
+      borderRadius: 2,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a0a2e',
+        borderColor: '#aa44ff',
+        borderWidth: 1,
+        titleFont: { family: "'Press Start 2P'", size: 9 },
+        bodyFont:  { family: "'Press Start 2P'", size: 9 },
+        callbacks: { label: ctx => ' ' + ctx.raw + ' spel' }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.07)' },
+        ticks: { font: { family: "'Press Start 2P'", size: 7 }, color: 'rgba(255,255,255,0.6)' },
+        beginAtZero: true
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { font: { family: "'Press Start 2P'", size: 8 }, color: 'rgba(255,255,255,0.85)' }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

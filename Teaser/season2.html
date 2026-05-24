@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blob Knight – Säsong 2 kommer snart</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { min-height: 100vh; }
+  body {
+    background: #0d0b1e;
+    color: white;
+    font-family: 'Press Start 2P', monospace;
+    text-align: center;
+    overflow-x: hidden;
+    padding: 50px 16px 60px;
+    position: relative;
+  }
+
+  /* Subtle moving grid background */
+  .grid-bg {
+    position: fixed; inset: 0; z-index: -2;
+    opacity: 0.07;
+    background-image:
+      linear-gradient(#aa44ff 1px, transparent 1px),
+      linear-gradient(90deg, #aa44ff 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: scroll-grid 30s linear infinite;
+  }
+  @keyframes scroll-grid {
+    0%   { background-position: 0 0; }
+    100% { background-position: 40px 40px; }
+  }
+
+  /* Tiny twinkling stars overlay */
+  .stars { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+
+  .container { max-width: 760px; margin: 0 auto; }
+
+  h1 {
+    font-size: 26px;
+    color: #cc77ff;
+    text-shadow: 0 0 22px #aa44ff, 0 0 44px rgba(170,68,255,0.4);
+    margin-bottom: 14px;
+    letter-spacing: 3px;
+    animation: title-pulse 3.2s ease-in-out infinite;
+  }
+  @keyframes title-pulse {
+    0%, 100% { text-shadow: 0 0 22px #aa44ff, 0 0 44px rgba(170,68,255,0.4); }
+    50%      { text-shadow: 0 0 36px #cc77ff, 0 0 64px rgba(170,68,255,0.6); }
+  }
+
+  .divider {
+    color: rgba(255,215,0,0.65);
+    font-size: 8px;
+    letter-spacing: 6px;
+    margin: 18px 0 30px;
+  }
+
+  h2 {
+    font-size: 28px;
+    color: #FFD700;
+    text-shadow: 0 0 20px #aa6600, 0 0 38px rgba(255,200,50,0.45);
+    margin-bottom: 8px;
+    line-height: 1.55;
+    letter-spacing: 3px;
+  }
+
+  canvas#lineup {
+    display: block;
+    margin: 30px auto 10px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    max-width: 100%;
+    height: auto;
+    background: transparent;
+  }
+
+  .body-text {
+    font-size: 10px;
+    line-height: 2;
+    color: rgba(255,255,255,0.88);
+    max-width: 600px;
+    margin: 28px auto;
+  }
+  .body-text strong {
+    color: #cc88ff;
+    font-weight: normal;
+  }
+  .body-text.urgent {
+    color: #ffcc66;
+    text-shadow: 0 0 10px rgba(255,200,60,0.45);
+  }
+  .body-text.urgent strong {
+    color: #ffe88a;
+  }
+
+  .footer {
+    font-size: 10px;
+    color: #FFD700;
+    margin-top: 44px;
+    letter-spacing: 5px;
+    animation: blink 1.5s steps(2) infinite;
+  }
+  @keyframes blink {
+    0%, 60% { opacity: 1; }
+    61%, 100% { opacity: 0.35; }
+  }
+
+  .signature {
+    font-size: 6px;
+    color: rgba(200,150,255,0.4);
+    margin-top: 28px;
+    letter-spacing: 2px;
+  }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 18px; letter-spacing: 2px; }
+    h2 { font-size: 19px; letter-spacing: 2px; }
+    .body-text { font-size: 8px; line-height: 1.85; }
+    .footer { font-size: 8px; letter-spacing: 3px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<canvas class="stars" id="stars"></canvas>
+
+<div class="container">
+  <h1>BLOB KNIGHT</h1>
+
+  <div class="divider">★ ★ ★ ★ ★ ★ ★</div>
+
+  <h2>SÄSONG 2<br>KOMMER SNART</h2>
+
+  <canvas id="lineup" width="720" height="220"></canvas>
+
+  <p class="body-text">
+    Goblins, jättar och bats kommer få sällskap av
+    <strong>sniglar</strong> och <strong>nya överraskningar</strong>.
+  </p>
+
+  <p class="body-text urgent">
+    Nästa helg kommer uppdateringen – skynda dig att
+    kontakta speldesigner <strong>Anton</strong> om du vill se
+    några ytterligare nya fiender.
+  </p>
+
+  <div class="footer">★ STAY TUNED ★</div>
+
+  <div class="signature">BLOB KNIGHT · SÄSONG 1 → SÄSONG 2</div>
+</div>
+
+<script>
+// ── TWINKLING STARS ──────────────────────────────────────────────────────────
+(function () {
+  const cv = document.getElementById('stars');
+  function resize() { cv.width = innerWidth; cv.height = innerHeight; }
+  resize(); addEventListener('resize', resize);
+  const c = cv.getContext('2d');
+  const stars = Array.from({length: 60}, () => ({
+    x: Math.random() * cv.width,
+    y: Math.random() * cv.height,
+    s: Math.random() < 0.7 ? 1 : 2,
+    twinkle: Math.random() * Math.PI * 2,
+    speed: 0.02 + Math.random() * 0.03,
+  }));
+  function loop() {
+    c.clearRect(0, 0, cv.width, cv.height);
+    for (const st of stars) {
+      const a = 0.3 + 0.5 * Math.sin(st.twinkle);
+      c.fillStyle = `rgba(200,180,255,${a})`;
+      c.fillRect(st.x, st.y, st.s, st.s);
+      st.twinkle += st.speed;
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+
+// ── ENEMY LINEUP ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('lineup');
+const ctx    = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const P = 3;
+let t = 0;
+
+function rw(y, x0, x1, col) { ctx.fillStyle = col; ctx.fillRect(x0*P, y*P, (x1-x0+1)*P, P); }
+function px(x, y, col)       { ctx.fillStyle = col; ctx.fillRect(x*P, y*P, P, P); }
+
+// ── GOBLIN ───────────────────────────────────────────────────────────────────
+function drawGoblin(cx, cy) {
+  const bob = Math.floor(t/14) % 2 === 0 ? 0 : -P;
+  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
+  const G = '#44bb55', Gd = '#2a8a33', O = '#1a3a1a';
+
+  // Pointy ears
+  px(ox-5, oy-13, Gd); px(ox-5, oy-12, Gd); px(ox-4, oy-12, Gd);
+  px(ox+4, oy-13, Gd); px(ox+4, oy-12, Gd); px(ox+3, oy-12, Gd);
+
+  // Head
+  rw(oy-12, ox-3, ox+2, G);
+  rw(oy-11, ox-4, ox+3, G);
+  rw(oy-10, ox-4, ox+3, G);
+
+  // Eyes (white sclera + black pupil)
+  px(ox-3, oy-11, 'white'); px(ox-2, oy-11, '#000');
+  px(ox+1, oy-11, 'white'); px(ox+2, oy-11, '#000');
+
+  // Mouth (snarl)
+  px(ox-1, oy-9, O); px(ox+0, oy-9, O);
+  px(ox-2, oy-9, 'white'); px(ox+1, oy-9, 'white');
+
+  // Body
+  rw(oy-8, ox-3, ox+2, G);
+  rw(oy-7, ox-4, ox+3, G);
+  rw(oy-6, ox-4, ox+3, G);
+  rw(oy-5, ox-3, ox+2, Gd);
+
+  // Legs
+  rw(oy-4, ox-3, ox-1, G);  rw(oy-3, ox-3, ox-1, G);
+  rw(oy-2, ox-3, ox-1, Gd); rw(oy-1, ox-4, ox-1, '#221');
+  rw(oy-4, ox+0, ox+2, G);  rw(oy-3, ox+0, ox+2, G);
+  rw(oy-2, ox+0, ox+2, Gd); rw(oy-1, ox+0, ox+3, '#221');
+
+  // Outline tint on top of head
+  px(ox-4, oy-13, Gd); px(ox-3, oy-13, Gd); px(ox+2, oy-13, Gd); px(ox+3, oy-13, Gd);
+}
+
+// ── GIANT ────────────────────────────────────────────────────────────────────
+function drawGiant(cx, cy) {
+  const bob = Math.floor(t/22) % 2 === 0 ? 0 : -P;
+  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
+  const R = '#cc5533', Rd = '#883322';
+
+  // Horns
+  px(ox-6, oy-18, Rd); px(ox-6, oy-17, Rd); px(ox-5, oy-17, Rd);
+  px(ox+5, oy-18, Rd); px(ox+5, oy-17, Rd); px(ox+4, oy-17, Rd);
+
+  // Head (large)
+  rw(oy-16, ox-4, ox+3, R);
+  rw(oy-15, ox-5, ox+4, R);
+  rw(oy-14, ox-5, ox+4, R);
+  rw(oy-13, ox-5, ox+4, R);
+
+  // Glowing red eyes
+  px(ox-3, oy-14, '#ffff66'); px(ox-2, oy-14, '#ff2200');
+  px(ox+1, oy-14, '#ffff66'); px(ox+2, oy-14, '#ff2200');
+
+  // Angry brow
+  rw(oy-15, ox-4, ox-3, Rd);
+  rw(oy-15, ox+2, ox+3, Rd);
+
+  // Mouth + tusks
+  rw(oy-12, ox-2, ox+1, '#330000');
+  px(ox-2, oy-12, '#fff'); px(ox+1, oy-12, '#fff');
+
+  // Massive body
+  rw(oy-11, ox-5, ox+4, Rd);
+  rw(oy-10, ox-6, ox+5, R);
+  rw(oy-9,  ox-6, ox+5, R);
+  rw(oy-8,  ox-6, ox+5, R);
+  rw(oy-7,  ox-6, ox+5, R);
+  rw(oy-6,  ox-5, ox+4, Rd);
+
+  // Thick legs
+  rw(oy-5, ox-4, ox-1, R);  rw(oy-4, ox-4, ox-1, R);
+  rw(oy-3, ox-4, ox-1, Rd); rw(oy-2, ox-5, ox-1, Rd);
+  rw(oy-1, ox-5, ox-1, '#221');
+  rw(oy-5, ox+0, ox+3, R);  rw(oy-4, ox+0, ox+3, R);
+  rw(oy-3, ox+0, ox+3, Rd); rw(oy-2, ox+0, ox+4, Rd);
+  rw(oy-1, ox+0, ox+4, '#221');
+}
+
+// ── BAT ──────────────────────────────────────────────────────────────────────
+function drawBat(cx, cy) {
+  const flap = Math.floor(t/6) % 2;
+  const drift = Math.sin(t * 0.04) * 2;
+  const ox = Math.round(cx/P), oy = Math.round((cy + drift)/P);
+  const B = '#3a2548', Bd = '#1a0a2a';
+
+  // Body
+  rw(oy-3, ox-1, ox+1, B);
+  rw(oy-2, ox-2, ox+2, B);
+  rw(oy-1, ox-2, ox+2, B);
+  rw(oy,   ox-1, ox+1, Bd);
+
+  // Pointy ears
+  px(ox-2, oy-4, B); px(ox+2, oy-4, B);
+  px(ox-2, oy-5, Bd); px(ox+2, oy-5, Bd);
+
+  // Glowing eyes
+  px(ox-1, oy-3, '#ff3322'); px(ox+1, oy-3, '#ff3322');
+
+  // Wings (flap)
+  if (flap === 0) {
+    // Wings spread down
+    rw(oy-3, ox-6, ox-3, Bd); rw(oy-2, ox-6, ox-3, B);
+    rw(oy-1, ox-5, ox-3, B);  px(ox-4, oy, Bd);
+    rw(oy-3, ox+3, ox+6, Bd); rw(oy-2, ox+3, ox+6, B);
+    rw(oy-1, ox+3, ox+5, B);  px(ox+4, oy, Bd);
+  } else {
+    // Wings folded up
+    rw(oy-5, ox-5, ox-3, Bd); rw(oy-4, ox-5, ox-3, B);
+    rw(oy-3, ox-4, ox-3, B);
+    rw(oy-5, ox+3, ox+5, Bd); rw(oy-4, ox+3, ox+5, B);
+    rw(oy-3, ox+3, ox+4, B);
+  }
+}
+
+// ── SNAIL (Klassisk A) ───────────────────────────────────────────────────────
+function drawSnail(cx, cy) {
+  const bob = Math.floor(t/18) % 2 === 0 ? 0 : -P;
+  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
+
+  const body    = '#88aa44', bodyHL = '#aabb66', foot   = '#445522';
+  const shell   = '#cc9944', shellD = '#7a4a11', shellHL = '#ffe08a';
+  const eye     = '#ff2233', stalk  = '#778833', mouth  = '#334422';
+
+  // FOOT
+  rw(oy,   ox-10, ox+8, foot);
+  rw(oy-1, ox-11, ox+9, body);
+  rw(oy-2, ox-11, ox+9, body);
+  rw(oy-3, ox-10, ox+8, body);
+  rw(oy-4, ox-9,  ox+7, bodyHL);
+
+  // HEAD
+  rw(oy-5, ox-13, ox-7, body);
+  rw(oy-6, ox-14, ox-6, body);
+  rw(oy-7, ox-14, ox-6, bodyHL);
+
+  // STALKS + EYES
+  rw(oy-8,  ox-13, ox-13, stalk);
+  rw(oy-9,  ox-13, ox-13, stalk);
+  rw(oy-10, ox-13, ox-13, stalk);
+  rw(oy-8,  ox-11, ox-11, stalk);
+  rw(oy-9,  ox-11, ox-11, stalk);
+  rw(oy-11, ox-14, ox-12, eye);
+  rw(oy-10, ox-14, ox-12, eye);
+  px(ox-13, oy-11, '#ffaaaa');
+  rw(oy-10, ox-11, ox-10, eye);
+  rw(oy-9,  ox-11, ox-10, eye);
+  px(ox-11, oy-10, '#ffaaaa');
+
+  // SHELL
+  rw(oy-12, ox-2, ox+10, shellD);
+  rw(oy-11, ox-4, ox+11, shell);
+  rw(oy-10, ox-5, ox+11, shell);
+  rw(oy-9,  ox-5, ox+11, shell);
+  rw(oy-8,  ox-5, ox+11, shell);
+  rw(oy-7,  ox-4, ox+11, shellD);
+  rw(oy-6,  ox-3, ox+10, shellD);
+  rw(oy-5,  ox-1, ox+9,  shellD);
+  rw(oy-12, ox+1, ox+5,  shellHL);
+  rw(oy-11, ox+1, ox+3,  shellHL);
+  rw(oy-9,  ox+1, ox+5,  shellD);
+  rw(oy-8,  ox+5, ox+8,  shellD);
+  rw(oy-7,  ox+2, ox+6,  shellD);
+  px(ox+4,  oy-10, shellD);
+
+  // Mouth
+  px(ox-11, oy-5, mouth); px(ox-10, oy-5, mouth); px(ox-9, oy-5, mouth);
+}
+
+// ── MYSTERY (???) ────────────────────────────────────────────────────────────
+function drawMystery(cx, cy) {
+  const pulse = 0.5 + 0.5 * Math.sin(t * 0.06);
+  const bob   = Math.sin(t * 0.04) * 2;
+
+  // Outer purple glow
+  ctx.globalAlpha = pulse * 0.35;
+  const grad = ctx.createRadialGradient(cx, cy - 22, 4, cx, cy - 22, 50);
+  grad.addColorStop(0, 'rgba(204,119,255,0.9)');
+  grad.addColorStop(1, 'rgba(204,119,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(cx - 50, cy - 70, 100, 90);
+  ctx.globalAlpha = 1;
+
+  // Silhouette egg shape
+  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
+  const sil = '#1a0a2a';
+  rw(oy-14, ox-2, ox+1, sil);
+  rw(oy-13, ox-3, ox+2, sil);
+  rw(oy-12, ox-4, ox+3, sil);
+  rw(oy-11, ox-5, ox+4, sil);
+  rw(oy-10, ox-5, ox+4, sil);
+  rw(oy-9,  ox-5, ox+4, sil);
+  rw(oy-8,  ox-5, ox+4, sil);
+  rw(oy-7,  ox-5, ox+4, sil);
+  rw(oy-6,  ox-5, ox+4, sil);
+  rw(oy-5,  ox-4, ox+3, sil);
+  rw(oy-4,  ox-3, ox+2, sil);
+  rw(oy-3,  ox-3, ox+2, sil);
+  rw(oy-2,  ox-2, ox+1, sil);
+  rw(oy-1,  ox-1, ox+0, sil);
+
+  // Two glowing dot "eyes" inside silhouette
+  ctx.fillStyle = `rgba(255,80,80,${0.6 + 0.4*pulse})`;
+  ctx.fillRect((ox-3)*P, (oy-10)*P, P, P);
+  ctx.fillRect((ox+1)*P, (oy-10)*P, P, P);
+
+  // Big pulsing "?"
+  ctx.save();
+  ctx.font = '38px "Press Start 2P", monospace';
+  ctx.fillStyle = '#cc77ff';
+  ctx.shadowColor = '#aa44ff';
+  ctx.shadowBlur = 8 + 16 * pulse;
+  ctx.textAlign = 'center';
+  ctx.fillText('?', cx, cy - 8);
+  ctx.restore();
+}
+
+// ── LABELS ───────────────────────────────────────────────────────────────────
+function drawLabels() {
+  ctx.font = '8px "Press Start 2P"';
+  ctx.textAlign = 'center';
+
+  // Left side label
+  ctx.fillStyle = 'rgba(200,200,200,0.55)';
+  ctx.fillText('SÄSONG 1', 160, 210);
+
+  // Right side label (pulsing gold)
+  const goldPulse = 0.75 + 0.25 * Math.sin(t * 0.07);
+  ctx.fillStyle = `rgba(255,215,0,${goldPulse})`;
+  ctx.fillText('SÄSONG 2', 530, 210);
+
+  // "NY!" badge floating above snail
+  const badgePulse = 0.7 + 0.3 * Math.sin(t * 0.12);
+  const badgeY = 38 + Math.sin(t * 0.08) * 3;
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillStyle = `rgba(255,80,80,${badgePulse})`;
+  ctx.shadowColor = '#ff4444';
+  ctx.shadowBlur = 8 + 8 * badgePulse;
+  ctx.fillText('★ NY! ★', 460, badgeY);
+  ctx.shadowBlur = 0;
+
+  ctx.textAlign = 'left';
+}
+
+// ── ANIMATION LOOP ───────────────────────────────────────────────────────────
+function animate() {
+  // Clear (transparent bg shows page through)
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Ground bar
+  ctx.fillStyle = '#3a5a2a';
+  ctx.fillRect(0, 188, canvas.width, 4);
+  ctx.fillStyle = '#557733';
+  ctx.fillRect(0, 188, canvas.width, 2);
+
+  // Vertical divider
+  ctx.fillStyle = 'rgba(170, 68, 255, 0.35)';
+  ctx.fillRect(355, 40, 2, 150);
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.7)';
+  ctx.fillRect(354, 108, 4, 8);
+
+  // Existing enemies (left of divider)
+  drawGoblin(80,  180);
+  drawGiant(180, 180);
+  drawBat(280,   118);
+
+  // New enemies (right of divider)
+  drawSnail(460, 180);
+  drawMystery(620, 180);
+
+  drawLabels();
+
+  t++;
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+
+</body>
+</html>

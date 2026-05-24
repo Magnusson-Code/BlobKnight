@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Kungsskorpion – Musikförhandsvisning</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #1a0d05;
+    color: white;
+    font-family: 'Press Start 2P', monospace;
+    padding: 50px 20px 80px;
+    min-height: 100vh;
+    text-align: center;
+  }
+  /* Subtle sandy haze background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: -1;
+    background:
+      radial-gradient(ellipse at 50% 0%,  rgba(255,170,68,0.10), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(170,68,17,0.15), transparent 70%);
+    pointer-events: none;
+  }
+  h1 {
+    color: #ffaa44;
+    font-size: 16px;
+    text-shadow: 0 0 22px #aa5500, 0 0 40px rgba(255,170,68,0.4);
+    margin-bottom: 8px;
+    letter-spacing: 3px;
+    animation: pulse 4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { text-shadow: 0 0 22px #aa5500, 0 0 40px rgba(255,170,68,0.4); }
+    50%     { text-shadow: 0 0 32px #ffcc66, 0 0 60px rgba(255,170,68,0.6); }
+  }
+  .sub {
+    color: rgba(255,200,150,0.5);
+    font-size: 7px;
+    margin-bottom: 50px;
+    letter-spacing: 1.5px;
+  }
+  .row {
+    display: flex; gap: 22px; justify-content: center; flex-wrap: wrap;
+    max-width: 1100px; margin: 0 auto;
+  }
+  .music-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,170,68,0.35);
+    padding: 22px 22px 18px;
+    min-width: 260px; max-width: 320px;
+    text-align: center;
+    border-radius: 4px;
+    transition: border-color 0.25s, transform 0.25s;
+  }
+  .music-card:hover { border-color: #ffaa44; transform: translateY(-2px); }
+  .music-card.playing { border-color: #ff6622; box-shadow: 0 0 20px rgba(255,100,30,0.3); }
+  .music-card h3 {
+    color: #ffcc66;
+    font-size: 9px;
+    margin-bottom: 14px;
+    letter-spacing: 2px;
+  }
+  .music-card .meta {
+    color: rgba(255,200,120,0.55);
+    font-size: 6px;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+  .music-card .desc {
+    color: rgba(255,255,255,0.65);
+    font-size: 6px;
+    line-height: 1.9;
+    margin-bottom: 18px;
+    min-height: 60px;
+  }
+  button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: #2a1408;
+    border: 1px solid #ff8844;
+    color: #ffcc88;
+    padding: 9px 14px;
+    cursor: pointer;
+    margin: 2px;
+    letter-spacing: 1px;
+  }
+  button:hover { background: #4a2008; }
+  button.playing { background: #5a2200; border-color: #ff5522; color: #ff9966; }
+  button.stop { border-color: #ff4444; color: #ff8888; }
+  button.stop:hover { background: #4a1010; }
+  .footer-note {
+    margin-top: 50px;
+    color: rgba(255,200,150,0.4);
+    font-size: 6px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<h1>KUNGSSKORPION – MUSIKVAL</h1>
+<p class="sub">3 alternativ till bossfighten · Välj A, B eller C</p>
+
+<div class="row">
+  <div class="music-card" id="card-A">
+    <h3>A) SANDSTORM</h3>
+    <div class="meta">140 BPM · Hijaz-skala</div>
+    <div class="desc">
+      Drivande Mellanöstern-mystik<br>
+      Snabbt tempo, full energi<br>
+      Klassisk öken-vibe, intensifierad
+    </div>
+    <button onclick="playMusic('A')" id="btnA">▶ SPELA A</button>
+    <button class="stop" onclick="stopMusic()">■ STOPP</button>
+  </div>
+
+  <div class="music-card" id="card-B">
+    <h3>B) DESERT STORM</h3>
+    <div class="meta">158 BPM · Phrygisk skala</div>
+    <div class="desc">
+      Snabb och aggressiv<br>
+      Drivande 16-dels-rytm<br>
+      Maximalt fight-läge
+    </div>
+    <button onclick="playMusic('B')" id="btnB">▶ SPELA B</button>
+    <button class="stop" onclick="stopMusic()">■ STOPP</button>
+  </div>
+
+  <div class="music-card" id="card-C">
+    <h3>C) CURSED TOMB</h3>
+    <div class="meta">85 BPM · Moll + kromatik</div>
+    <div class="desc">
+      Långsamt och olycksbådande<br>
+      Djup bas, glesa accenter<br>
+      Spöklik och förbannad
+    </div>
+    <button onclick="playMusic('C')" id="btnC">▶ SPELA C</button>
+    <button class="stop" onclick="stopMusic()">■ STOPP</button>
+  </div>
+</div>
+
+<p class="footer-note">Säg vilken du väljer (A/B/C) så implementerar jag den som scorpion-låt</p>
+
+<script>
+let _ac = null;
+function ac() {
+  if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ac.state === 'suspended') _ac.resume();
+  return _ac;
+}
+
+// ── MUSIK ────────────────────────────────────────────────────────────────────
+let musicGen = 0, musicTimeout = null;
+
+function stopMusic() {
+  musicGen++;
+  clearTimeout(musicTimeout);
+  ['A','B','C'].forEach(x => {
+    const b = document.getElementById('btn' + x);
+    const card = document.getElementById('card-' + x);
+    if (b) b.classList.remove('playing');
+    if (card) card.classList.remove('playing');
+  });
+}
+
+function playMusic(which) {
+  stopMusic();
+  const myGen = ++musicGen;
+  document.getElementById('btn' + which).classList.add('playing');
+  document.getElementById('card-' + which).classList.add('playing');
+
+  const F = {
+    // octave 2 (deep bass)
+    A2: 110, E2: 82, F2: 87, D2: 73, G2: 98,
+    // octave 3
+    C3:131, D3:147, E3:165, F3:175, G3:196, A3:220, B3:247,
+    Bb3:233, Cs4:277, Fs3:185, Gs3:208, Ab3:207,
+    // octave 4
+    C4:262, D4:294, E4:330, F4:349, G4:392, A4:440, B4:494,
+    Bb4:466, Cs5:554, Fs4:370, Gs4:415, Ab4:415, Eb4:311,
+    // octave 5
+    C5:523, D5:587, E5:659, F5:698, G5:784, A5:880, B5:988,
+    Bb5:932, Eb5:622, Ab5:830, Gs5:831,
+  };
+  const R = 0;
+
+  const TRACKS = {
+    // ─────────────────────────────────────────────────────────────────────
+    // A) SANDSTORM – Hijaz/Phrygian-Dominant på A, 140 BPM
+    // Samma karakteristiska melodi (Bb → C# augmenterad sekund) men nu drivande.
+    // ─────────────────────────────────────────────────────────────────────
+    A: {
+      bpm: 140,
+      mel: [
+        [F.A4,.75],[F.Bb4,.25],[F.Cs5,.5],[F.Bb4,.5],
+        [F.A4,.5],[F.E4,.5],[F.F4,.5],[F.E4,.5],
+        [F.E4,.75],[F.F4,.25],[F.Gs4,.5],[F.A4,.5],
+        [F.Bb4,.5],[F.A4,.5],[F.Gs4,.5],[F.E4,.5],
+        [F.A4,.5],[F.Cs5,.5],[F.D5,.5],[F.Cs5,.5],
+        [F.Bb4,.5],[F.A4,.5],[F.Gs4,.5],[F.A4,.5],
+        [F.Cs5,.75],[F.D5,.25],[F.E5,.5],[F.D5,.5],
+        [F.Cs5,.5],[F.Bb4,.5],[F.A4,1],
+      ],
+      bas: [
+        [F.A3,1],[F.A3,1],[F.A3,1],[F.E3,1],
+        [F.F3,1],[F.F3,1],[F.E3,1],[F.A3,1],
+        [F.A3,1],[F.D3,1],[F.E3,1],[F.A3,1],
+        [F.A3,1],[F.E3,1],[F.A3,1],[F.A3,1],
+      ],
+      // Tätare percussion med fler ghost-hits för att matcha det snabbare tempot
+      per: [1,0,.4,0, .7,0,.5,.3, 1,0,.4,0, .7,.3,.5,.4], pb:.25,
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // B) DESERT STORM – Phrygisk på A, 158 BPM
+    // Snabba 16-delar i nedåtgående löpningar
+    // ─────────────────────────────────────────────────────────────────────
+    B: {
+      bpm: 158,
+      mel: [
+        [F.A5,.25],[F.G5,.25],[F.F5,.25],[F.E5,.25],
+        [F.D5,.25],[F.C5,.25],[F.Bb4,.25],[F.A4,.25],
+        [F.F4,.25],[F.G4,.25],[F.A4,.25],[F.Bb4,.25],
+        [F.C5,.5],[F.A4,.5],
+        [F.A5,.25],[F.A5,.25],[F.G5,.25],[F.F5,.25],
+        [F.E5,.25],[F.F5,.25],[F.G5,.25],[F.F5,.25],
+        [F.E5,.25],[F.D5,.25],[F.C5,.25],[F.Bb4,.25],
+        [F.A4,.5],[F.A4,.5],
+        [F.E5,.25],[F.F5,.25],[F.G5,.25],[F.A5,.25],
+        [F.G5,.25],[F.F5,.25],[F.E5,.25],[F.D5,.25],
+        [F.C5,.25],[F.D5,.25],[F.E5,.25],[F.F5,.25],
+        [F.G5,.5],[F.E5,.5],
+        [F.A5,.5],[F.G5,.5],[F.F5,.5],[F.E5,.5],
+        [F.D5,.25],[F.C5,.25],[F.Bb4,.25],[F.A4,.25],
+        [F.A4,.5],[R,.5],
+      ],
+      bas: [
+        [F.A3,.5],[F.A3,.5],[F.A3,.5],[F.G3,.5],
+        [F.F3,.5],[F.E3,.5],[F.D3,.5],[F.A3,.5],
+        [F.A3,.5],[F.A3,.5],[F.G3,.5],[F.A3,.5],
+        [F.F3,.5],[F.E3,.5],[F.A3,.5],[F.A3,.5],
+        [F.A3,.5],[F.G3,.5],[F.F3,.5],[F.E3,.5],
+        [F.F3,.5],[F.G3,.5],[F.A3,.5],[F.A3,.5],
+        [F.A3,.5],[F.G3,.5],[F.F3,.5],[F.D3,.5],
+        [F.E3,.5],[F.E3,.5],[F.A3,.5],[F.A3,.5],
+      ],
+      per: [1,.4,.7,.4, 1,.4,.7,.4, 1,.4,.7,.4, 1,.4,.7,.5], pb:.25,
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // C) CURSED TOMB – A-moll med kromatik, 85 BPM
+    // Långsam, gles, ominös – som en gammal grav som väcks
+    // ─────────────────────────────────────────────────────────────────────
+    C: {
+      bpm: 85,
+      mel: [
+        [F.A4,1.5],[F.Gs4,.25],[F.G4,.25],
+        [F.A4,.5],[F.C5,.5],[F.E5,.5],[F.D5,.5],
+        [F.A4,1.5],[F.Gs4,.25],[F.G4,.25],
+        [F.E5,.25],[F.D5,.25],[F.C5,.25],[F.B4,.25],[F.A4,.5],[R,.5],
+
+        [F.A4,1],[F.E4,.5],[F.F4,.5],
+        [F.E4,.5],[F.D4,.5],[F.E4,.5],[F.F4,.5],
+        [F.A4,1],[F.B4,.5],[F.C5,.5],
+        [F.E5,1.5],[R,.5],
+      ],
+      bas: [
+        [F.A2,2],
+        [F.A2,2],
+        [F.F2,2],
+        [F.E2,2],
+        [F.A2,2],
+        [F.D2,2],
+        [F.E2,2],
+        [F.A2,2],
+      ],
+      per: [1,0,0,0, 0,0,.3,0, 1,0,0,0, 0,0,.3,0], pb:.25,
+    },
+  };
+
+  function noteOn(freq, dur, time, vol, wave) {
+    vol = vol || 0.024; wave = wave || 'square';
+    if (!freq || freq < 20) return;
+    try {
+      const c = ac(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = wave; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, time);
+      g.gain.setValueAtTime(vol, time + dur * 0.8);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.98);
+      o.start(time); o.stop(time + dur);
+    } catch (e) {}
+  }
+  function bassOn(freq, dur, time, vol) {
+    vol = vol || 0.018;
+    if (!freq || freq < 20) return;
+    try {
+      const c = ac(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'triangle'; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.9);
+      o.start(time); o.stop(time + dur);
+    } catch (e) {}
+  }
+  function percOn(vol, time, dur, kind) {
+    if (vol < 0.05) return;
+    try {
+      const c = ac(), n = Math.ceil(c.sampleRate * dur);
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(), g = c.createGain();
+      src.buffer = buf; src.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(vol * 0.020, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.55);
+      src.start(time); src.stop(time + dur);
+    } catch (e) {}
+  }
+
+  const tr = TRACKS[which];
+  const beat = 60 / tr.bpm;
+  const melDur = tr.mel.reduce((s, x) => s + x[1], 0) * beat;
+  const basDur = tr.bas.reduce((s, x) => s + x[1], 0) * beat;
+  const perDur = tr.per.length * tr.pb * beat;
+  const loopDur = Math.max(melDur, basDur, perDur);
+
+  function schedLoop(startAt) {
+    if (musicGen !== myGen) return;
+    const c = ac();
+    let t = startAt;
+    for (const [f, b] of tr.mel) { noteOn(f, b * beat * 0.88, t); t += b * beat; }
+    t = startAt;
+    for (const [f, b] of tr.bas) { bassOn(f, b * beat * 0.85, t); t += b * beat; }
+    t = startAt;
+    for (const v of tr.per) { percOn(v, t, tr.pb * beat * 0.5); t += tr.pb * beat; }
+    const next = startAt + loopDur;
+    musicTimeout = setTimeout(() => schedLoop(next), Math.max(0, (next - c.currentTime - 0.05) * 1000));
+  }
+  schedLoop(ac().currentTime + 0.05);
+}
+</script>
+
+</body>
+</html>

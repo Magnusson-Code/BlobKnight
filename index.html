@@ -2,477 +2,3942 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Blob Knight – Säsong 2 kommer snart</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<title>Blob Knight</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { min-height: 100vh; }
   body {
-    background: #0d0b1e;
+    background:#111;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    width:100vw; height:100dvh; overflow:hidden;
+    font-family:Arial,sans-serif;
+  }
+  canvas {
+    display:block;
+    border:2px solid #444;
+    /* Scale to fit screen while keeping 800×420 aspect ratio */
+    width:  min(100vw, calc(var(--ch) * 800 / 420));
+    height: auto;
+    max-height: 100dvh;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges; /* Firefox fallback */
+  }
+  #controls { color:#888; font-size:13px; margin-top:6px; text-align:center; flex-shrink:0; }
+  #nameInput {
+    position: fixed;
+    left: 50%;
+    top: 36%;
+    transform: translate(-50%, 0);
+    background: #110820;
+    border: 3px solid #aa44ff;
     color: white;
     font-family: 'Press Start 2P', monospace;
+    font-size: 16px;
     text-align: center;
-    overflow-x: hidden;
-    padding: 50px 16px 60px;
-    position: relative;
-  }
-
-  /* Subtle moving grid background */
-  .grid-bg {
-    position: fixed; inset: 0; z-index: -2;
-    opacity: 0.07;
-    background-image:
-      linear-gradient(#aa44ff 1px, transparent 1px),
-      linear-gradient(90deg, #aa44ff 1px, transparent 1px);
-    background-size: 40px 40px;
-    animation: scroll-grid 30s linear infinite;
-  }
-  @keyframes scroll-grid {
-    0%   { background-position: 0 0; }
-    100% { background-position: 40px 40px; }
-  }
-
-  /* Tiny twinkling stars overlay */
-  .stars { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-
-  .container { max-width: 760px; margin: 0 auto; }
-
-  h1 {
-    font-size: 26px;
-    color: #cc77ff;
-    text-shadow: 0 0 22px #aa44ff, 0 0 44px rgba(170,68,255,0.4);
-    margin-bottom: 14px;
+    padding: 16px 22px;
+    width: min(340px, 82vw);
+    outline: none;
     letter-spacing: 3px;
-    animation: title-pulse 3.2s ease-in-out infinite;
+    caret-color: #cc88ff;
+    display: none;
+    z-index: 10;
+    -webkit-appearance: none;
+    border-radius: 0;
   }
-  @keyframes title-pulse {
-    0%, 100% { text-shadow: 0 0 22px #aa44ff, 0 0 44px rgba(170,68,255,0.4); }
-    50%      { text-shadow: 0 0 36px #cc77ff, 0 0 64px rgba(170,68,255,0.6); }
+  @media (pointer: coarse) {
+    #nameInput { font-size: 20px; padding: 18px 24px; }
   }
-
-  .divider {
-    color: rgba(255,215,0,0.65);
-    font-size: 8px;
-    letter-spacing: 6px;
-    margin: 18px 0 30px;
-  }
-
-  h2 {
-    font-size: 28px;
-    color: #FFD700;
-    text-shadow: 0 0 20px #aa6600, 0 0 38px rgba(255,200,50,0.45);
-    margin-bottom: 8px;
-    line-height: 1.55;
-    letter-spacing: 3px;
-  }
-
-  canvas#lineup {
-    display: block;
-    margin: 30px auto 10px;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    max-width: 100%;
-    height: auto;
-    background: transparent;
-  }
-
-  .body-text {
-    font-size: 10px;
-    line-height: 2;
-    color: rgba(255,255,255,0.88);
-    max-width: 600px;
-    margin: 28px auto;
-  }
-  .body-text strong {
-    color: #cc88ff;
-    font-weight: normal;
-  }
-  .body-text.urgent {
-    color: #ffcc66;
-    text-shadow: 0 0 10px rgba(255,200,60,0.45);
-  }
-  .body-text.urgent strong {
-    color: #ffe88a;
-  }
-
-  .footer {
-    font-size: 10px;
-    color: #FFD700;
-    margin-top: 44px;
-    letter-spacing: 5px;
-    animation: blink 1.5s steps(2) infinite;
-  }
-  @keyframes blink {
-    0%, 60% { opacity: 1; }
-    61%, 100% { opacity: 0.35; }
-  }
-
-  .signature {
-    font-size: 6px;
-    color: rgba(200,150,255,0.4);
-    margin-top: 28px;
-    letter-spacing: 2px;
-  }
-
-  @media (max-width: 600px) {
-    h1 { font-size: 18px; letter-spacing: 2px; }
-    h2 { font-size: 19px; letter-spacing: 2px; }
-    .body-text { font-size: 8px; line-height: 1.85; }
-    .footer { font-size: 8px; letter-spacing: 3px; }
+  @media (max-height: 480px) {
+    /* Landscape on phone – input even higher */
+    #nameInput { top: 28%; }
   }
 </style>
+<script>
+  // Set --ch = available height (minus controls bar when visible)
+  function setCanvasHeight() {
+    const ctrl = document.getElementById('controls');
+    const ctrlH = ctrl && ctrl.offsetHeight ? ctrl.offsetHeight + 6 : 0;
+    document.documentElement.style.setProperty('--ch', (window.innerHeight - ctrlH) + 'px');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    setCanvasHeight();
+    window.addEventListener('resize', setCanvasHeight);
+  });
+</script>
 </head>
 <body>
-
-<div class="grid-bg"></div>
-<canvas class="stars" id="stars"></canvas>
-
-<div class="container">
-  <h1>BLOB KNIGHT</h1>
-
-  <div class="divider">★ ★ ★ ★ ★ ★ ★</div>
-
-  <h2>SÄSONG 2<br>KOMMER SNART</h2>
-
-  <canvas id="lineup" width="720" height="220"></canvas>
-
-  <p class="body-text">
-    Goblins, jättar och bats kommer få sällskap av
-    <strong>sniglar</strong> och <strong>nya överraskningar</strong>.
-  </p>
-
-  <p class="body-text urgent">
-    Nästa helg kommer uppdateringen – skynda dig att
-    kontakta speldesigner <strong>Anton</strong> om du vill se
-    några ytterligare nya fiender.
-  </p>
-
-  <div class="footer">★ STAY TUNED ★</div>
-
-  <div class="signature">BLOB KNIGHT · SÄSONG 1 → SÄSONG 2</div>
-</div>
-
+<canvas id="c"></canvas>
+<input id="nameInput" type="text" maxlength="10" placeholder="DITT NAMN" autocomplete="off" autocorrect="off" spellcheck="false">
+<div id="controls"></div>
 <script>
-// ── TWINKLING STARS ──────────────────────────────────────────────────────────
-(function () {
-  const cv = document.getElementById('stars');
-  function resize() { cv.width = innerWidth; cv.height = innerHeight; }
-  resize(); addEventListener('resize', resize);
-  const c = cv.getContext('2d');
-  const stars = Array.from({length: 60}, () => ({
-    x: Math.random() * cv.width,
-    y: Math.random() * cv.height,
-    s: Math.random() < 0.7 ? 1 : 2,
-    twinkle: Math.random() * Math.PI * 2,
-    speed: 0.02 + Math.random() * 0.03,
-  }));
-  function loop() {
-    c.clearRect(0, 0, cv.width, cv.height);
-    for (const st of stars) {
-      const a = 0.3 + 0.5 * Math.sin(st.twinkle);
-      c.fillStyle = `rgba(200,180,255,${a})`;
-      c.fillRect(st.x, st.y, st.s, st.s);
-      st.twinkle += st.speed;
-    }
-    requestAnimationFrame(loop);
+  (function() {
+    const mobile = navigator.maxTouchPoints > 0;
+    document.getElementById('controls').textContent = mobile
+      ? 'Tryck på skärmen: Svärd  |  Tryck på mätaren: Eldboll  |  Svep uppåt: Hoppa'
+      : 'Mellanslag: Svärd  |  Shift: Eldboll  |  Ctrl: Hoppa  |  Enter: Spela igen';
+  })();
+</script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBA62tFq5SLJobzTfPLskbUTSgnRn8YuWM",
+    authDomain: "blobknight.firebaseapp.com",
+    projectId: "blobknight",
+    storageBucket: "blobknight.firebasestorage.app",
+    messagingSenderId: "218956454798",
+    appId: "1:218956454798:web:35baabc854314df714a2df"
+  };
+
+  // Robust init: om Firebase SDK eller anslutning blockeras (annonsblockerare,
+  // file:// origin, offline) fortsätter spelet utan leaderboard istället för att krascha.
+  let db;
+  let firebaseAvailable = false;
+  try {
+    if (typeof firebase === 'undefined') throw new Error('Firebase SDK ej laddad (kan vara blockerad av tillägg)');
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    firebaseAvailable = true;
+  } catch (err) {
+    console.warn('[BlobKnight] Firebase otillgängligt – topplistan inaktiverad:', err.message);
+    // Stub-db: alla queries är no-ops som avvisas tyst
+    const fail = () => Promise.reject(new Error('Firebase unavailable'));
+    const stubQuery = { where:()=>stubQuery, orderBy:()=>stubQuery, limit:()=>stubQuery, get:fail, add:fail };
+    db = { collection: () => stubQuery };
   }
-  loop();
+</script>
+<script>
+'use strict';
+
+// ── DEV MODE ────────────────────────────────────────────────────────────────
+// Aktivera utvecklarläge med ?dev=1 i URL:en. Detta persisteras i localStorage
+// så det räcker att lägga in det en gång per enhet. Sätt ?dev=0 (eller rensa
+// localStorage) för att stänga av. När aktivt visas TESTA SNIGEL/SCORPION på
+// huvudmenyn — för vanliga spelare är dessa helt dolda.
+(function () {
+  const p = new URLSearchParams(window.location.search).get('dev');
+  if (p === '1') localStorage.setItem('blobKnightDev', '1');
+  else if (p === '0') localStorage.removeItem('blobKnightDev');
+})();
+const isDev = localStorage.getItem('blobKnightDev') === '1';
+
+// ── CANVAS ──────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+canvas.width  = 800;
+canvas.height = 420;
+
+// ── PIXEL ART HELPERS ────────────────────────────────────────────────────────
+const P = 4; // 1 "pixel" = 4×4 canvas pixels
+
+// Draw one P×P pixel at grid offset (gx,gy) from world position (wx,wy)
+function px(wx, wy, gx, gy, col) {
+  ctx.fillStyle = col;
+  ctx.fillRect(wx + gx*P, wy + gy*P, P, P);
+}
+
+// Fill a horizontal run of pixels at the same gy
+function prow(wx, wy, gy, x0, x1, col) {
+  ctx.fillStyle = col;
+  ctx.fillRect(wx + x0*P, wy + gy*P, (x1 - x0 + 1)*P, P);
+}
+
+// Draw a sprite defined as array of [gy, x0, x1, color]
+function drawRows(wx, wy, rows) {
+  for (const [gy, x0, x1, col] of rows) prow(wx, wy, gy, x0, x1, col);
+}
+
+function easeOut(t) { return 1 - Math.pow(1 - t, 2); }
+function easeIn(t)  { return t * t; }
+
+// ── AUDIO (Web Audio API – synthesised chiptune sfx) ─────────────────────────
+// Shared AudioContext – both SFX and music use the same instance
+let _ac = null;
+function getAC() {
+  if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ac.state === 'suspended') _ac.resume();
+  return _ac;
+}
+
+const snd = (() => {
+  function ctx() { return getAC(); }
+  function tone(freq, endFreq, dur, vol = 0.28, wave = 'square') {
+    try {
+      const c = ctx(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = wave;
+      o.frequency.setValueAtTime(freq, c.currentTime);
+      if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, c.currentTime + dur);
+      g.gain.setValueAtTime(vol, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      o.start(c.currentTime); o.stop(c.currentTime + dur);
+    } catch(e) {}
+  }
+  function noise(dur, vol = 0.14) {
+    try {
+      const c = ctx(), n = c.sampleRate * dur;
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(), g = c.createGain();
+      src.buffer = buf; src.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(vol, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      src.start();
+    } catch(e) {}
+  }
+  function later(fn, ms) { setTimeout(fn, ms); }
+  return {
+    jump()        { tone(220, 440, 0.07, 0.18, 'square'); later(() => tone(330, 660, 0.06, 0.13, 'square'), 65); },
+    swing()       { noise(0.07, 0.1); tone(280, 140, 0.08, 0.12); },
+    hit()         { tone(220, 110, 0.09, 0.22); },
+    die()         { tone(300, 80, 0.22, 0.26); noise(0.18, 0.09); },
+    giantDie()    { tone(120, 40, 0.38, 0.32); noise(0.3, 0.16); },
+    iceDie()      { tone(900, 300, 0.18, 0.18, 'sine'); later(() => tone(1400, 700, 0.12, 0.1, 'triangle'), 60); },
+    shoot()       { tone(180, 380, 0.11, 0.22); },
+    iceShoot()    { tone(500, 900, 0.11, 0.18, 'triangle'); later(() => tone(900, 600, 0.12, 0.1, 'sine'), 80); },
+    explode()     { noise(0.28, 0.22); tone(140, 55, 0.28, 0.16); },
+    iceExplode()  { tone(1100, 350, 0.18, 0.14, 'sine'); noise(0.12, 0.08); later(() => tone(700, 1500, 0.1, 0.1, 'triangle'), 80); },
+    hurt()        { tone(140, 70, 0.22, 0.32); },
+    heart()       { [262,330,392,523].forEach((f,i) => later(() => tone(f, f, 0.11, 0.22), i*75)); },
+    gift()        { [330,440,554,659,880].forEach((f,i) => later(() => tone(f, f*1.04, 0.09, 0.26), i*55)); },
+    iceActivate() { [1000,1300,800,1600,600,2000].forEach((f,i) => later(() => tone(f, f*1.6, 0.11, 0.16, 'sine'), i*45)); },
+    bigFirework() {
+      // Rising rocket whoosh
+      tone(160, 1000, 0.38, 0.10, 'sawtooth');
+      // Explosion boom
+      later(() => noise(0.55, 0.28), 360);
+      // Sparkle cascade
+      [880,1100,660,1320,990,770,1540,550].forEach((f,i) =>
+        later(() => tone(f, f*0.45, 0.18, 0.07, 'square'), 380 + i*85));
+    },
+    smallFirework() {
+      // Pop
+      noise(0.20, 0.16);
+      // Short sparkles
+      [700, 1000, 850].forEach((f,i) =>
+        later(() => tone(f, f*0.55, 0.13, 0.055, 'square'), i*70));
+    },
+    batDie()    { tone(600, 150, 0.15, 0.18, 'sawtooth'); later(() => noise(0.07, 0.08), 80); },
+    batShriek() { tone(900, 500, 0.10, 0.14, 'sawtooth'); later(() => tone(700, 400, 0.08, 0.10, 'sawtooth'), 50); },
+    fireGoblinShoot() {
+      // Mörkare/lägre version av player shoot — fire goblin spottar ut sin eldboll
+      tone(120, 260, 0.14, 0.24, 'sawtooth');
+      later(() => noise(0.06, 0.10), 20);
+    },
+    fireballReflect() {
+      // Metallisk PING när svärdet slår tillbaka eldbollen
+      tone(900, 1500, 0.06, 0.22, 'square');
+      later(() => tone(1300, 700, 0.05, 0.16, 'square'), 30);
+      noise(0.04, 0.08);
+    },
+    miniSnailSpawn() {
+      tone(300, 200, 0.08, 0.15, 'sine');
+      later(() => tone(400, 250, 0.08, 0.12, 'sine'), 90);
+      later(() => tone(350, 180, 0.08, 0.10, 'sine'), 180);
+      noise(0.06, 0.06);
+    },
+    slimeThrow() {
+      tone(180, 80, 0.28, 0.18, 'sine');
+      noise(0.12, 0.10);
+      later(() => tone(220, 100, 0.18, 0.10, 'triangle'), 80);
+    },
+    bossRoar() {
+      tone(80, 40, 0.55, 0.32);
+      noise(0.4, 0.14);
+      later(() => tone(120, 55, 0.35, 0.18, 'square'), 200);
+    },
+    bossHit() { tone(440, 220, 0.12, 0.18, 'square'); noise(0.08, 0.10); },
+    bossDie() {
+      tone(200, 30, 0.8, 0.35, 'sawtooth'); noise(0.6, 0.22);
+      [440,550,660,330,220].forEach((f,i) =>
+        later(() => tone(f, f*0.4, 0.15, 0.08, 'square'), 400 + i*120));
+    },
+  };
 })();
 
-// ── ENEMY LINEUP ─────────────────────────────────────────────────────────────
-const canvas = document.getElementById('lineup');
-const ctx    = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false;
+// ── BACKGROUND MUSIC ─────────────────────────────────────────────────────────
+const bgm = (() => {
+  // Frequencies used in the tracks
+  const F = {
+    C3:131,D3:147,E3:165,F3:175,G3:196,A3:220,B3:247,
+    C4:262,D4:294,E4:330,F4:349,G4:392,A4:440,B4:494,
+    C5:523,D5:587,E5:659,F5:698,G5:784,A5:880,B5:988,
+    Cs5:554,Fs5:740,Gs5:831,C6:1047,D6:1175,
+    Fs3:185,Fs4:370,
+    Bb4:466, Bb3:233, Gs3:208, Eb5:622, Ab3:207,
+    Gs4:415,
+  };
+  const R = 0;
 
-const P = 3;
-let t = 0;
+  // Phase 1 – Green Fields (A)
+  const T1 = {
+    bpm:130,
+    mel:[[F.C5,.5],[F.E5,.5],[F.G5,.5],[F.C6,.5],[F.B5,.5],[F.G5,.5],[F.E5,.25],[F.D5,.25],
+         [F.F5,.5],[F.A5,.5],[F.C6,.5],[F.A5,.5],[F.G5,.5],[F.E5,.25],[F.D5,.25],[F.C5,.5],
+         [F.E5,.5],[F.G5,.5],[F.E5,.25],[F.D5,.25],[F.C5,.5],
+         [F.G4,.25],[F.A4,.25],[F.B4,.25],[F.C5,.25],[F.D5,.5],[R,.5],
+         [F.C5,.25],[F.D5,.25],[F.E5,.25],[F.F5,.25],[F.G5,.5],[F.E5,.5],
+         [F.D5,.5],[F.C5,.75],[R,.25]],
+    bas:[[F.C3,1],[F.G3,1],[F.F3,1],[F.G3,1],[F.C3,1],[F.G3,1],[F.F3,1],[F.C3,1]],
+    per:[1,0,.4,0,1,0,.4,0,1,0,.4,0,1,0,.4,0], pb:.25,
+  };
 
-function rw(y, x0, x1, col) { ctx.fillStyle = col; ctx.fillRect(x0*P, y*P, (x1-x0+1)*P, P); }
-function px(x, y, col)       { ctx.fillStyle = col; ctx.fillRect(x*P, y*P, P, P); }
+  // Phase 2 – Shadow Path (C)
+  const T2 = {
+    bpm:110,
+    mel:[[F.A5,.75],[F.G5,.25],[F.E5,.5],[F.C5,.5],
+         [F.D5,.5],[F.E5,.5],[F.A4,1],
+         [F.F5,.5],[F.E5,.25],[F.D5,.25],[F.C5,.5],[F.E5,.5],
+         [F.A4,.75],[R,.25],[F.B4,.5],[F.C5,.5],
+         [F.A5,.5],[F.Gs5,.5],[F.A5,.5],[F.E5,.5],
+         [F.G5,.5],[F.F5,.5],[F.E5,.5],[F.D5,.5],
+         [F.C5,.5],[F.D5,.5],[F.E5,.5],[F.F5,.5],
+         [F.E5,1],[R,1]],
+    bas:[[F.A3,1],[F.E3,1],[F.F3,1],[F.E3,1],[F.A3,1],[F.G3,1],[F.F3,1],[F.E3,1]],
+    per:[1,0,0,0,0,0,.3,0,0,0,1,0,0,0,.3,0], pb:.25,
+  };
 
-// ── GOBLIN ───────────────────────────────────────────────────────────────────
-function drawGoblin(cx, cy) {
-  const bob = Math.floor(t/14) % 2 === 0 ? 0 : -P;
-  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
-  const G = '#44bb55', Gd = '#2a8a33', O = '#1a3a1a';
+  // Phase 3 – Speed Run (D)
+  const T3 = {
+    bpm:170,
+    mel:[[F.D5,.25],[F.Fs5,.25],[F.A5,.25],[F.D6,.25],[F.C6,.25],[F.A5,.25],[F.Fs5,.25],[F.E5,.25],
+         [F.G5,.25],[F.B5,.25],[F.D6,.25],[F.B5,.25],[F.A5,.25],[F.G5,.25],[F.Fs5,.25],[F.D5,.25],
+         [F.E5,.25],[F.Fs5,.25],[F.G5,.25],[F.A5,.25],[F.B5,.25],[F.A5,.25],[F.G5,.25],[F.Fs5,.25],
+         [F.A5,.25],[F.Fs5,.25],[F.D5,.25],[F.E5,.25],[F.Fs5,.5],[F.D5,.25],[R,.25],
+         [F.A5,.25],[F.G5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.E5,.25],[F.Fs5,.25],[F.G5,.25],
+         [F.A5,.25],[F.B5,.25],[F.A5,.25],[F.G5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.Cs5,.25],
+         [F.D5,.25],[F.Fs5,.25],[F.A5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.E5,.25],[F.Fs5,.25],
+         [F.G5,.25],[F.Fs5,.25],[F.E5,.25],[F.D5,.25],[F.Fs5,.5],[F.D5,.5]],
+    bas:[[F.D3,.5],[F.A3,.5],[F.D3,.5],[F.A3,.5],[F.G3,.5],[F.D3,.5],[F.G3,.5],[F.A3,.5],
+         [F.D3,.5],[F.A3,.5],[F.Fs3,.5],[F.A3,.5],[F.G3,.5],[F.D3,.5],[F.A3,.5],[F.D3,.5]],
+    per:[1,0,.5,0,1,0,.5,0,1,0,.5,0,1,.3,.5,.3], pb:.25,
+  };
 
-  // Pointy ears
-  px(ox-5, oy-13, Gd); px(ox-5, oy-12, Gd); px(ox-4, oy-12, Gd);
-  px(ox+4, oy-13, Gd); px(ox+4, oy-12, Gd); px(ox+3, oy-12, Gd);
+  // Phase 4 – Boss: Battle Mörk (A-moll, 175 BPM)
+  const T4 = {
+    bpm:175,
+    mel:[[F.A5,.25],[F.G5,.25],[F.F5,.25],[F.A5,.25],
+         [F.Eb5,.25],[F.F5,.25],[F.G5,.5],
+         [F.A5,.25],[F.G5,.25],[F.Eb5,.25],[F.F5,.25],
+         [F.G5,.5],[R,.5],
+         [F.A5,.25],[F.F5,.25],[F.Eb5,.25],[F.G5,.25],
+         [F.B5,.5],[F.G5,.25],[F.F5,.25],
+         [F.A5,.25],[F.Eb5,.25],[F.G5,.5],
+         [F.F5,.5],[F.A5,.75],[R,.25]],
+    bas:[[F.A3,.5],[F.E3,.5],[F.F3,.5],[F.C4,.5],
+         [F.G3,.5],[F.D3,.5],[F.A3,.5],[F.E3,.5],
+         [F.Ab3,.5],[F.Gs3,.5],[F.F3,.5],[F.A3,.5],
+         [F.E3,.5],[F.G3,.5],[F.Gs3,.5],[F.A3,.5]],
+    per:[1,.3,.5,.3,1,.3,.5,.3,1,.3,.5,0,1,.4,.5,.4], pb:.25,
+  };
 
-  // Head
-  rw(oy-12, ox-3, ox+2, G);
-  rw(oy-11, ox-4, ox+3, G);
-  rw(oy-10, ox-4, ox+3, G);
+  // Phase 5 – Scorpion Boss: Sandstorm (Hijaz/Phrygisk-Dominant på A, 140 BPM)
+  const T5 = {
+    bpm:140,
+    mel:[[F.A4,.75],[F.Bb4,.25],[F.Cs5,.5],[F.Bb4,.5],
+         [F.A4,.5],[F.E4,.5],[F.F4,.5],[F.E4,.5],
+         [F.E4,.75],[F.F4,.25],[F.Gs4,.5],[F.A4,.5],
+         [F.Bb4,.5],[F.A4,.5],[F.Gs4,.5],[F.E4,.5],
+         [F.A4,.5],[F.Cs5,.5],[F.D5,.5],[F.Cs5,.5],
+         [F.Bb4,.5],[F.A4,.5],[F.Gs4,.5],[F.A4,.5],
+         [F.Cs5,.75],[F.D5,.25],[F.E5,.5],[F.D5,.5],
+         [F.Cs5,.5],[F.Bb4,.5],[F.A4,1]],
+    bas:[[F.A3,1],[F.A3,1],[F.A3,1],[F.E3,1],
+         [F.F3,1],[F.F3,1],[F.E3,1],[F.A3,1],
+         [F.A3,1],[F.D3,1],[F.E3,1],[F.A3,1],
+         [F.A3,1],[F.E3,1],[F.A3,1],[F.A3,1]],
+    per:[1,0,.4,0, .7,0,.5,.3, 1,0,.4,0, .7,.3,.5,.4], pb:.25,
+  };
 
-  // Eyes (white sclera + black pupil)
-  px(ox-3, oy-11, 'white'); px(ox-2, oy-11, '#000');
-  px(ox+1, oy-11, 'white'); px(ox+2, oy-11, '#000');
+  const TRACKS = { 1:T1, 2:T2, 3:T3, 4:T4, 5:T5 };
+  let playing = false, currentPhase = 0, loopTimeout = null, loopDur = 0, loopStart = 0;
+  let gen = 0; // incremented on every track switch — old loop callbacks self-cancel
 
-  // Mouth (snarl)
-  px(ox-1, oy-9, O); px(ox+0, oy-9, O);
-  px(ox-2, oy-9, 'white'); px(ox+1, oy-9, 'white');
+  function note(freq, dur, time) {
+    if (!freq || freq < 20) return;
+    try {
+      const c = getAC(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'square'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.023, time);
+      g.gain.setValueAtTime(0.023, time + dur * 0.78);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.96);
+      o.start(time); o.stop(time + dur);
+    } catch(e) {}
+  }
+  function bass(freq, dur, time) {
+    if (!freq || freq < 20) return;
+    try {
+      const c = getAC(), o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'triangle'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.017, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.9);
+      o.start(time); o.stop(time + dur);
+    } catch(e) {}
+  }
+  function perc(vol, time, dur) {
+    if (vol < 0.05) return;
+    try {
+      const c = getAC(), n = Math.ceil(c.sampleRate * dur);
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(), g = c.createGain();
+      src.buffer = buf; src.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(vol * 0.019, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.6);
+      src.start(time); src.stop(time + dur);
+    } catch(e) {}
+  }
 
-  // Body
-  rw(oy-8, ox-3, ox+2, G);
-  rw(oy-7, ox-4, ox+3, G);
-  rw(oy-6, ox-4, ox+3, G);
-  rw(oy-5, ox-3, ox+2, Gd);
+  function scheduleLoop(tr, startAt, myGen) {
+    if (!playing || myGen !== gen) return; // stale generation — stop silently
+    const beat = 60 / tr.bpm;
+    let t = startAt;
+    for (const [f, b] of tr.mel) { note(f, b * beat * 0.88, t); t += b * beat; }
+    t = startAt;
+    for (const [f, b] of tr.bas) { bass(f, b * beat * 0.85, t); t += b * beat; }
+    t = startAt;
+    for (const v of tr.per) { perc(v, t, tr.pb * beat * 0.5); t += tr.pb * beat; }
+    const next = startAt + loopDur;
+    loopTimeout = setTimeout(() => scheduleLoop(tr, next, myGen),
+      Math.max(0, (next - getAC().currentTime - 0.05) * 1000));
+  }
 
-  // Legs
-  rw(oy-4, ox-3, ox-1, G);  rw(oy-3, ox-3, ox-1, G);
-  rw(oy-2, ox-3, ox-1, Gd); rw(oy-1, ox-4, ox-1, '#221');
-  rw(oy-4, ox+0, ox+2, G);  rw(oy-3, ox+0, ox+2, G);
-  rw(oy-2, ox+0, ox+2, Gd); rw(oy-1, ox+0, ox+3, '#221');
+  function startTrack(phase) {
+    gen++;                          // invalidates any running loop callbacks
+    clearTimeout(loopTimeout);
+    playing = false;
+    const tr = TRACKS[phase]; if (!tr) return;
+    const beat = 60 / tr.bpm;
+    loopDur = Math.max(
+      tr.mel.reduce((s,[,b]) => s+b, 0) * beat,
+      tr.bas.reduce((s,[,b]) => s+b, 0) * beat,
+      tr.per.length * tr.pb * beat
+    );
+    playing = true; currentPhase = phase;
+    loopStart = getAC().currentTime + 0.05;
+    scheduleLoop(tr, loopStart, gen);
+  }
 
-  // Outline tint on top of head
-  px(ox-4, oy-13, Gd); px(ox-3, oy-13, Gd); px(ox+2, oy-13, Gd); px(ox+3, oy-13, Gd);
+  return {
+    update(phase) {
+      if (phase !== currentPhase) startTrack(phase);
+    },
+    stop() { gen++; clearTimeout(loopTimeout); playing = false; currentPhase = 0; },
+  };
+})();
+
+// ── INPUT ────────────────────────────────────────────────────────────────────
+const keys = {};
+let spaceJustPressed = false;
+let shiftJustPressed = false;
+let ctrlJustPressed  = false;
+
+document.addEventListener('keydown', e => {
+  if (!keys[e.code]) {
+    if (e.code === 'Space')                                { spaceJustPressed = true; e.preventDefault(); }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { shiftJustPressed = true; e.preventDefault(); }
+    if (e.code === 'ControlLeft' || e.code === 'ControlRight') { ctrlJustPressed = true; e.preventDefault(); }
+    if (e.code === 'Enter') {
+      if (gs.state === 'nameentry')   submitName();
+      else if (gs.state === 'mainmenu')    startGame();
+      else if (gs.state === 'leaderboard') { leaderboardPage = 1; gs.state = scoreBoardFrom; }
+      else if (gs.state === 'credits')     gs.state = 'mainmenu';
+      else if (gs.state === 'gameover')    restartGame();
+      e.preventDefault();
+    }
+  }
+  keys[e.code] = true;
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+function canvasCoords(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return [
+    (clientX - r.left) * (canvas.width  / r.width),
+    (clientY - r.top)  * (canvas.height / r.height),
+  ];
 }
 
-// ── GIANT ────────────────────────────────────────────────────────────────────
-function drawGiant(cx, cy) {
-  const bob = Math.floor(t/22) % 2 === 0 ? 0 : -P;
-  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
-  const R = '#cc5533', Rd = '#883322';
-
-  // Horns
-  px(ox-6, oy-18, Rd); px(ox-6, oy-17, Rd); px(ox-5, oy-17, Rd);
-  px(ox+5, oy-18, Rd); px(ox+5, oy-17, Rd); px(ox+4, oy-17, Rd);
-
-  // Head (large)
-  rw(oy-16, ox-4, ox+3, R);
-  rw(oy-15, ox-5, ox+4, R);
-  rw(oy-14, ox-5, ox+4, R);
-  rw(oy-13, ox-5, ox+4, R);
-
-  // Glowing red eyes
-  px(ox-3, oy-14, '#ffff66'); px(ox-2, oy-14, '#ff2200');
-  px(ox+1, oy-14, '#ffff66'); px(ox+2, oy-14, '#ff2200');
-
-  // Angry brow
-  rw(oy-15, ox-4, ox-3, Rd);
-  rw(oy-15, ox+2, ox+3, Rd);
-
-  // Mouth + tusks
-  rw(oy-12, ox-2, ox+1, '#330000');
-  px(ox-2, oy-12, '#fff'); px(ox+1, oy-12, '#fff');
-
-  // Massive body
-  rw(oy-11, ox-5, ox+4, Rd);
-  rw(oy-10, ox-6, ox+5, R);
-  rw(oy-9,  ox-6, ox+5, R);
-  rw(oy-8,  ox-6, ox+5, R);
-  rw(oy-7,  ox-6, ox+5, R);
-  rw(oy-6,  ox-5, ox+4, Rd);
-
-  // Thick legs
-  rw(oy-5, ox-4, ox-1, R);  rw(oy-4, ox-4, ox-1, R);
-  rw(oy-3, ox-4, ox-1, Rd); rw(oy-2, ox-5, ox-1, Rd);
-  rw(oy-1, ox-5, ox-1, '#221');
-  rw(oy-5, ox+0, ox+3, R);  rw(oy-4, ox+0, ox+3, R);
-  rw(oy-3, ox+0, ox+3, Rd); rw(oy-2, ox+0, ox+4, Rd);
-  rw(oy-1, ox+0, ox+4, '#221');
-}
-
-// ── BAT ──────────────────────────────────────────────────────────────────────
-function drawBat(cx, cy) {
-  const flap = Math.floor(t/6) % 2;
-  const drift = Math.sin(t * 0.04) * 2;
-  const ox = Math.round(cx/P), oy = Math.round((cy + drift)/P);
-  const B = '#3a2548', Bd = '#1a0a2a';
-
-  // Body
-  rw(oy-3, ox-1, ox+1, B);
-  rw(oy-2, ox-2, ox+2, B);
-  rw(oy-1, ox-2, ox+2, B);
-  rw(oy,   ox-1, ox+1, Bd);
-
-  // Pointy ears
-  px(ox-2, oy-4, B); px(ox+2, oy-4, B);
-  px(ox-2, oy-5, Bd); px(ox+2, oy-5, Bd);
-
-  // Glowing eyes
-  px(ox-1, oy-3, '#ff3322'); px(ox+1, oy-3, '#ff3322');
-
-  // Wings (flap)
-  if (flap === 0) {
-    // Wings spread down
-    rw(oy-3, ox-6, ox-3, Bd); rw(oy-2, ox-6, ox-3, B);
-    rw(oy-1, ox-5, ox-3, B);  px(ox-4, oy, Bd);
-    rw(oy-3, ox+3, ox+6, Bd); rw(oy-2, ox+3, ox+6, B);
-    rw(oy-1, ox+3, ox+5, B);  px(ox+4, oy, Bd);
+function handleTap(mx, my) {
+  if (gs.state === 'nameentry') {
+    // Fortsätt button
+    const bx = canvas.width / 2 - 110, by = 330, bw = 220, bh = 44;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+      submitName();
+    }
+    return;
+  }
+  if (gs.state === 'mainmenu') {
+    // SPELA button
+    const sx = canvas.width / 2 - 120, sy = 238, sw = 240, sh = 44;
+    if (mx >= sx && mx <= sx + sw && my >= sy && my <= sy + sh) {
+      startGame(); return;
+    }
+    // LEADERBOARD button (left of pair)
+    const lx = canvas.width / 2 - 158, ly = 290, lw = 150, lh = 36;
+    if (mx >= lx && mx <= lx + lw && my >= ly && my <= ly + lh) {
+      scoreBoardFrom = 'mainmenu';
+      if (Object.keys(allSeasonsCache).length === 0) loadAllSeasonsScores();
+      leaderboardPage = 1; gs.state = 'leaderboard'; return;
+    }
+    // CREDITS button (right of pair)
+    const cx = canvas.width / 2 + 8, cy = 290, cw = 150, ch = 36;
+    if (mx >= cx && mx <= cx + cw && my >= cy && my <= cy + ch) {
+      gs.state = 'credits'; return;
+    }
+    // TESTA SNIGEL + TESTA SCORPION (endast i dev-läge)
+    if (isDev) {
+      const tbw = 178, tbh = 28, gap = 12, tby = 340;
+      const tbx1 = canvas.width / 2 - tbw - gap/2;  // snail (left)
+      const tbx2 = canvas.width / 2 + gap/2;        // scorpion (right)
+      if (mx >= tbx1 && mx <= tbx1 + tbw && my >= tby && my <= tby + tbh) {
+        startBossTest('snail'); return;
+      }
+      if (mx >= tbx2 && mx <= tbx2 + tbw && my >= tby && my <= tby + tbh) {
+        startBossTest('scorpion'); return;
+      }
+    }
+    // NY SPELARE (small link, only when hasPlayed)
+    if (hasPlayed) {
+      const nx = canvas.width / 2 - 90, ny = 210, nw = 180, nh = 22;
+      if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+        newPlayer(); return;
+      }
+    }
+    return;
+  }
+  if (gs.state === 'leaderboard') {
+    // Toggle 1-10 / 11-20 button
+    if (_lbToggleBtn && mx >= _lbToggleBtn.x && mx <= _lbToggleBtn.x + _lbToggleBtn.w &&
+        my >= _lbToggleBtn.y && my <= _lbToggleBtn.y + _lbToggleBtn.h) {
+      leaderboardPage = leaderboardPage === 1 ? 2 : 1;
+      return;
+    }
+    // Tillbaka button
+    const bx = canvas.width / 2 - 110, by = canvas.height - 50, bw = 220, bh = 38;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+      leaderboardPage = 1; gs.state = scoreBoardFrom; return;
+    }
+    return;
+  }
+  if (gs.state === 'credits') {
+    // Tillbaka button
+    const bx = canvas.width / 2 - 110, by = canvas.height - 50, bw = 220, bh = 38;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+      gs.state = 'mainmenu'; return;
+    }
+    return;
+  }
+  if (gs.state === 'gameover') {
+    // Visa alla button
+    const vx = canvas.width / 2 - 80, vy = 284, vw = 160, vh = 30;
+    if (mx >= vx && mx <= vx + vw && my >= vy && my <= vy + vh) {
+      scoreBoardFrom = 'gameover';
+      if (Object.keys(allSeasonsCache).length === 0) loadAllSeasonsScores();
+      leaderboardPage = 1; gs.state = 'leaderboard'; return;
+    }
+    // Spela igen button
+    const bx = canvas.width / 2 - 120, by = 328, bw = 240, bh = 46;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) restartGame();
+    return;
+  }
+  // Playing state
+  if (mx >= 0 && mx <= 110 && my >= canvas.height - 64) {
+    shiftJustPressed = true;
   } else {
-    // Wings folded up
-    rw(oy-5, ox-5, ox-3, Bd); rw(oy-4, ox-5, ox-3, B);
-    rw(oy-3, ox-4, ox-3, B);
-    rw(oy-5, ox+3, ox+5, Bd); rw(oy-4, ox+3, ox+5, B);
-    rw(oy-3, ox+3, ox+4, B);
+    spaceJustPressed = true;
   }
 }
 
-// ── SNAIL (Klassisk A) ───────────────────────────────────────────────────────
-function drawSnail(cx, cy) {
-  const bob = Math.floor(t/18) % 2 === 0 ? 0 : -P;
-  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
+canvas.addEventListener('click', e => {
+  const [mx, my] = canvasCoords(e.clientX, e.clientY);
+  handleTap(mx, my);
+});
 
-  const body    = '#88aa44', bodyHL = '#aabb66', foot   = '#445522';
-  const shell   = '#cc9944', shellD = '#7a4a11', shellHL = '#ffe08a';
-  const eye     = '#ff2233', stalk  = '#778833', mouth  = '#334422';
+let _touchStartClientY = 0;
+let _touchStartClientX = 0;
+let _touchPending = false;
+let _touchPendingX = 0;
+let _touchPendingY = 0;
 
-  // FOOT
-  rw(oy,   ox-10, ox+8, foot);
-  rw(oy-1, ox-11, ox+9, body);
-  rw(oy-2, ox-11, ox+9, body);
-  rw(oy-3, ox-10, ox+8, body);
-  rw(oy-4, ox-9,  ox+7, bodyHL);
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  _touchStartClientX = e.touches[0].clientX;
+  _touchStartClientY = e.touches[0].clientY;
+  if (gs.state !== 'playing') {
+    // Menyvyer: trigga direkt så knappar svarar omedelbart
+    const [mx, my] = canvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+    handleTap(mx, my);
+  } else {
+    // Under spel: vänta på touchend innan vi vet om det är ett svep eller tapp
+    const [mx, my] = canvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+    _touchPending = true;
+    _touchPendingX = mx;
+    _touchPendingY = my;
+  }
+}, { passive: false });
 
-  // HEAD
-  rw(oy-5, ox-13, ox-7, body);
-  rw(oy-6, ox-14, ox-6, body);
-  rw(oy-7, ox-14, ox-6, bodyHL);
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (gs.state !== 'playing') return;
+  const dy = e.touches[0].clientY - _touchStartClientY;
+  if (dy < -35) {
+    ctrlJustPressed = true;
+    _touchPending = false; // det var ett svep – avbryt det väntande tappet
+    _touchStartClientY = e.touches[0].clientY; // reset so it only fires once per swipe
+  }
+}, { passive: false });
 
-  // STALKS + EYES
-  rw(oy-8,  ox-13, ox-13, stalk);
-  rw(oy-9,  ox-13, ox-13, stalk);
-  rw(oy-10, ox-13, ox-13, stalk);
-  rw(oy-8,  ox-11, ox-11, stalk);
-  rw(oy-9,  ox-11, ox-11, stalk);
-  rw(oy-11, ox-14, ox-12, eye);
-  rw(oy-10, ox-14, ox-12, eye);
-  px(ox-13, oy-11, '#ffaaaa');
-  rw(oy-10, ox-11, ox-10, eye);
-  rw(oy-9,  ox-11, ox-10, eye);
-  px(ox-11, oy-10, '#ffaaaa');
+canvas.addEventListener('touchend', e => {
+  if (_touchPending) {
+    _touchPending = false;
+    handleTap(_touchPendingX, _touchPendingY);
+  }
+}, { passive: false });
 
-  // SHELL
-  rw(oy-12, ox-2, ox+10, shellD);
-  rw(oy-11, ox-4, ox+11, shell);
-  rw(oy-10, ox-5, ox+11, shell);
-  rw(oy-9,  ox-5, ox+11, shell);
-  rw(oy-8,  ox-5, ox+11, shell);
-  rw(oy-7,  ox-4, ox+11, shellD);
-  rw(oy-6,  ox-3, ox+10, shellD);
-  rw(oy-5,  ox-1, ox+9,  shellD);
-  rw(oy-12, ox+1, ox+5,  shellHL);
-  rw(oy-11, ox+1, ox+3,  shellHL);
-  rw(oy-9,  ox+1, ox+5,  shellD);
-  rw(oy-8,  ox+5, ox+8,  shellD);
-  rw(oy-7,  ox+2, ox+6,  shellD);
-  px(ox+4,  oy-10, shellD);
+// ── GAME STATE ───────────────────────────────────────────────────────────────
+let gs = {};   // populated by resetState()
 
-  // Mouth
-  px(ox-11, oy-5, mouth); px(ox-10, oy-5, mouth); px(ox-9, oy-5, mouth);
+function resetState() {
+  gs = {
+    state:       'playing',
+    frame:       0,
+    distance:    0,
+    score:       0,
+    phase:       1,
+    worldSpeed:  1.8,
+    spawnTimer:  0,
+    spawnRate:   120,
+    bgScroll:    0,
+    mgScroll:    0,
+    fgScroll:    0,
+    enemies:        [],
+    fireballs:      [],
+    enemyFireballs: [],   // eldbollar avfyrade av Fire Goblin (kan studsa tillbaka)
+    particles:      [],
+    heartAnims:          [],
+    fireballExplosions:  [],
+    iceExplosions:       [],
+    gifts:               [],
+    nextHeartScore:  500,
+    nextGiftScore:   200,
+    lastGiantFrame: -480, // allows a giant to spawn immediately when phase 2 starts
+    lastBatFrame:   -360,
+    icePower:       false,
+    icePowerEnd:    0,
+    startTime:      performance.now(),
+    pausedMs:       0,           // ackumuleras under bossfight så difficulty-timern (t) inte glider iväg
+    goParticles:    [],
+    goFwInit:       false,
+    isNewTop1:      false,
+    isTopScore:     false,
+    // ── BOSS ─────────────────────────────────────────────────────────────────
+    boss:           null,        // boss entity (null = no boss)
+    bossTest:       null,        // 'snail' | null – set when testing a boss
+    bossDefeated:   false,       // true after current boss is killed
+    bossVictoryT:   0,           // frames since boss death (for victory transition)
+    slimeWaves:     [],          // tall slime projectiles (obstacles)
+    shockwaves:     [],          // scorpion tail-slam shockwaves
+    energyBeams:    [],          // scorpion pincer-sweep beams (head-height)
+    venomPools:     [],          // scorpion venom (arc + landed pool)
+    snailBossDone:  false,       // true after snail boss is killed in real game
+    snailBossArmed: false,       // true once we've entered the pre-boss window (rensningsfönster)
+    lastBossKilled: null,        // 'snail' | 'scorpion' – used by victory overlay
+  };
 }
 
-// ── MYSTERY (???) ────────────────────────────────────────────────────────────
-function drawMystery(cx, cy) {
-  const pulse = 0.5 + 0.5 * Math.sin(t * 0.06);
-  const bob   = Math.sin(t * 0.04) * 2;
+let highScore = parseInt(localStorage.getItem('blobKnightHS') || '0');
 
-  // Outer purple glow
-  ctx.globalAlpha = pulse * 0.35;
-  const grad = ctx.createRadialGradient(cx, cy - 22, 4, cx, cy - 22, 50);
-  grad.addColorStop(0, 'rgba(204,119,255,0.9)');
-  grad.addColorStop(1, 'rgba(204,119,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(cx - 50, cy - 70, 100, 90);
+// ── PLAYER & SCOREBOARD ───────────────────────────────────────────────────────
+let playerName = '';
+let scoreCache = [];       // top-10 from Firestore (current season), fetched on demand
+let scoresLoading = false;
+let scoreBoardFrom = 'mainmenu';   // tracks where "Tillbaka" should return to
+let hasPlayed = false;             // true after first completed game
+
+const CURRENT_SEASON = 2;
+let allSeasonsCache = {};          // { 1: [...top3], 2: [...top20] }
+let allSeasonsLoading = false;
+let leaderboardPage = 1;           // 1 = plats 1-10, 2 = plats 11-20
+let _lbToggleBtn = null;           // { x, y, w, h } for hit-test
+const nameInputEl = document.getElementById('nameInput');
+
+function fmtScore(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009');
+}
+
+function loadScores() {
+  scoresLoading = true;
+  scoreCache = [];
+  db.collection('scores')
+    .where('season', '==', CURRENT_SEASON)
+    .orderBy('score', 'desc')
+    .limit(10)
+    .get()
+    .then(snap => {
+      scoreCache = snap.docs.map(d => d.data());
+      scoresLoading = false;
+    })
+    .catch(err => { console.error('Score load:', err); scoresLoading = false; });
+}
+
+function loadAllSeasonsScores() {
+  allSeasonsLoading = true;
+  allSeasonsCache = {};
+  const seasons = Array.from({ length: CURRENT_SEASON }, (_, i) => i + 1);
+  let pending = seasons.length;
+  seasons.forEach(s => {
+    const lim = s === CURRENT_SEASON ? 20 : 3;
+    db.collection('scores')
+      .where('season', '==', s)
+      .orderBy('score', 'desc')
+      .limit(lim)
+      .get()
+      .then(snap => {
+        allSeasonsCache[s] = snap.docs.map(d => d.data());
+        if (--pending === 0) allSeasonsLoading = false;
+      })
+      .catch(err => { console.error('All seasons load:', err); if (--pending === 0) allSeasonsLoading = false; });
+  });
+}
+
+function saveScore(name, score) {
+  if (!name || score <= 0) return;
+  if (!firebaseAvailable) return;  // ingen Firebase = ingen save, skippa tyst
+  db.collection('scores').add({
+    name: name,
+    score: score,
+    season: CURRENT_SEASON,
+    ts: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(err => console.error('Score save:', err));
+}
+
+// ── BLOB ─────────────────────────────────────────────────────────────────────
+let blob = {};
+
+function resetBlob() {
+  blob = {
+    x: 140, y: 310,
+    lives: 3, maxLives: 3,
+    invincible: false, invTimer: 0,
+    visible: true, blinkT: 0,
+    bobOff: 0, bobDir: 1,
+    attacking: false, atkTimer: 0, atkAngle: 0,
+    specialCD: 0, specialMax: 300,   // 5 s @ 60 fps
+    jumping: false, vy: 0, groundY: 310,
+  };
+}
+
+function updateBlob() {
+  // Bob
+  blob.bobOff += 0.08 * blob.bobDir;
+  if (Math.abs(blob.bobOff) > 4) blob.bobDir *= -1;
+
+  // Normal attack
+  if (spaceJustPressed && !blob.attacking) {
+    blob.attacking = true;
+    blob.atkTimer  = 0;
+    blob.atkAngle  = -0.5;
+    spaceJustPressed = false;
+    snd.swing();
+  }
+  if (blob.attacking) {
+    blob.atkTimer++;
+    blob.atkAngle += 0.18;
+    if (blob.atkTimer === 8) checkSwordHit();
+    if (blob.atkTimer >= 16) { blob.attacking = false; blob.atkTimer = 0; }
+  }
+  spaceJustPressed = false;
+
+  // Special
+  if (blob.specialCD > 0) blob.specialCD--;
+  if (shiftJustPressed && blob.specialCD === 0) {
+    launchFireball();
+    blob.specialCD = gs.icePower ? 60 : blob.specialMax;
+    shiftJustPressed = false;
+  }
+  shiftJustPressed = false;
+
+  // Jump
+  if (ctrlJustPressed && !blob.jumping) {
+    blob.jumping = true;
+    blob.vy = -10;
+    blob.bobOff = 0; // freeze bob during jump
+    snd.jump();
+  }
+  ctrlJustPressed = false;
+  if (blob.jumping) {
+    blob.y  += blob.vy;
+    blob.vy += 0.45;
+    if (blob.y >= blob.groundY) {
+      blob.y      = blob.groundY;
+      blob.vy     = 0;
+      blob.jumping = false;
+    }
+  }
+
+  // Invincibility blink
+  if (blob.invincible) {
+    blob.invTimer--;
+    blob.blinkT++;
+    blob.visible = Math.floor(blob.blinkT / 5) % 2 === 0;
+    if (blob.invTimer <= 0) { blob.invincible = false; blob.visible = true; }
+  }
+}
+
+function blobHurt() {
+  if (blob.invincible) return;
+  blob.lives--;
+  blob.invincible = true;
+  blob.invTimer   = 90;
+  blob.blinkT     = 0;
+  spawnParticles(blob.x, blob.y, '#ff4444', 10);
+  snd.hurt();
+  if (blob.lives <= 0) endGame();
+}
+
+// ── SWORD HIT CHECK ──────────────────────────────────────────────────────────
+function checkSwordHit() {
+  const sx = blob.x + 22, sy = blob.y - 10 + blob.bobOff;
+  for (const e of gs.enemies) {
+    if (e.dead) continue;
+    if (Math.abs(e.x - sx) < 95 && Math.abs(e.y - sy) < 80) {
+      damageEnemy(e, 1);
+    }
+  }
+  // Reflektera inkommande eldbollar med svärdet
+  for (const ef of gs.enemyFireballs) {
+    if (!ef.active || ef.reflected) continue;
+    if (Math.abs(ef.x - sx) < 95 && Math.abs(ef.y - sy) < 60) {
+      ef.reflected = true;
+      ef.vx = -ef.vx;          // vänd riktning (höger nu)
+      spawnParticles(ef.x, ef.y, '#ffdd44', 14);
+      snd.fireballReflect();
+    }
+  }
+  for (const g of gs.gifts) {
+    if (g.dead) continue;
+    if (Math.abs(g.x - sx) < 95 && Math.abs(g.y - sy) < 80) {
+      g.dead = true;
+      g.deathT = 6;
+      spawnConfetti(g.x, g.y - 18);
+      snd.gift();
+      activateIcePower();
+    }
+  }
+}
+
+// ── FIREBALL ─────────────────────────────────────────────────────────────────
+function launchFireball() {
+  gs.fireballs.push({ x: blob.x+28, y: blob.y-10+blob.bobOff, vx:8, t:0, active:true });
+  if (gs.icePower) snd.iceShoot(); else snd.shoot();
+}
+
+function updateFireballs() {
+  for (let i = gs.fireballs.length-1; i >= 0; i--) {
+    const fb = gs.fireballs[i];
+    fb.x += fb.vx;
+    fb.t++;
+    // Check enemies
+    for (const e of gs.enemies) {
+      if (e.dead) continue;
+      if (rectsOverlap(fb.x-14, fb.y-14, 28, 28,
+                       e.x - e.hw, e.y - e.hh, e.hw*2, e.hh*2)) {
+        damageEnemy(e, 3, 'fireball');
+        spawnParticles(fb.x, fb.y, '#ff8800', 12);
+        fb.active = false;
+        break;
+      }
+    }
+    // Check boss
+    if (fb.active && gs.boss && !gs.boss.dying) {
+      const hb = bossHitbox(gs.boss);
+      if (rectsOverlap(fb.x-14, fb.y-14, 28, 28, hb.x, hb.y, hb.w, hb.h)) {
+        damageBoss(1);
+        spawnParticles(fb.x, fb.y, '#ff8800', 14);
+        fb.active = false;
+      }
+    }
+    // Spelarens eldboll vs Fire Goblins inkommande eldboll → båda försvinner
+    if (fb.active) {
+      for (const ef of gs.enemyFireballs) {
+        if (!ef.active || ef.reflected) continue;
+        if (rectsOverlap(fb.x-14, fb.y-14, 28, 28, ef.x-12, ef.y-12, 24, 24)) {
+          fb.active = false;
+          ef.active = false;
+          spawnParticles((fb.x+ef.x)/2, (fb.y+ef.y)/2, '#ffaa00', 18);
+          spawnParticles((fb.x+ef.x)/2, (fb.y+ef.y)/2, '#ff5500', 10);
+          snd.explode();
+          break;
+        }
+      }
+    }
+    if (fb.x > canvas.width+60 || !fb.active) gs.fireballs.splice(i, 1);
+  }
+}
+
+function drawFireballs() {
+  for (const fb of gs.fireballs) {
+    const pulse = Math.sin(fb.t * 0.35) * 3;
+    const ice = gs.icePower;
+    // Trail
+    for (let t = 4; t >= 1; t--) {
+      ctx.globalAlpha = 0.08 * t;
+      ctx.fillStyle = ice ? '#0088cc' : '#ff5500';
+      ctx.beginPath();
+      ctx.arc(fb.x - t*9, fb.y + Math.sin(fb.t*0.2+t)*3, 8-t, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Glow
+    const gr = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, 18+pulse);
+    if (ice) {
+      gr.addColorStop(0,   'rgba(200,240,255,0.95)');
+      gr.addColorStop(0.45,'rgba(0,150,255,0.6)');
+      gr.addColorStop(1,   'rgba(0,80,200,0)');
+    } else {
+      gr.addColorStop(0,   'rgba(255,220,60,0.95)');
+      gr.addColorStop(0.45,'rgba(255,100,0,0.6)');
+      gr.addColorStop(1,   'rgba(255,40,0,0)');
+    }
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(fb.x, fb.y, 18+pulse, 0, Math.PI*2); ctx.fill();
+    // Core
+    ctx.fillStyle = ice ? '#e0f8ff' : '#fff8aa';
+    ctx.beginPath(); ctx.arc(fb.x, fb.y, 7, 0, Math.PI*2); ctx.fill();
+  }
   ctx.globalAlpha = 1;
+}
 
-  // Silhouette egg shape
-  const ox = Math.round(cx/P), oy = Math.round((cy + bob)/P);
-  const sil = '#1a0a2a';
-  rw(oy-14, ox-2, ox+1, sil);
-  rw(oy-13, ox-3, ox+2, sil);
-  rw(oy-12, ox-4, ox+3, sil);
-  rw(oy-11, ox-5, ox+4, sil);
-  rw(oy-10, ox-5, ox+4, sil);
-  rw(oy-9,  ox-5, ox+4, sil);
-  rw(oy-8,  ox-5, ox+4, sil);
-  rw(oy-7,  ox-5, ox+4, sil);
-  rw(oy-6,  ox-5, ox+4, sil);
-  rw(oy-5,  ox-4, ox+3, sil);
-  rw(oy-4,  ox-3, ox+2, sil);
-  rw(oy-3,  ox-3, ox+2, sil);
-  rw(oy-2,  ox-2, ox+1, sil);
-  rw(oy-1,  ox-1, ox+0, sil);
+// ── ENEMY FIREBALL (Fire Goblin) ─────────────────────────────────────────────
+function spawnEnemyFireball(x, y) {
+  gs.enemyFireballs.push({
+    x, y,
+    vx: -5,             // går vänster mot spelaren
+    t: 0,
+    active: true,
+    reflected: false,
+  });
+}
 
-  // Two glowing dot "eyes" inside silhouette
-  ctx.fillStyle = `rgba(255,80,80,${0.6 + 0.4*pulse})`;
-  ctx.fillRect((ox-3)*P, (oy-10)*P, P, P);
-  ctx.fillRect((ox+1)*P, (oy-10)*P, P, P);
+function updateEnemyFireballs() {
+  for (let i = gs.enemyFireballs.length - 1; i >= 0; i--) {
+    const ef = gs.enemyFireballs[i];
+    ef.x += ef.vx;
+    ef.t++;
 
-  // Big pulsing "?"
+    if (ef.reflected) {
+      // Studsade tillbaka: fungerar som spelarens eldboll → dödar fiender + boss
+      for (const e of gs.enemies) {
+        if (e.dead) continue;
+        if (rectsOverlap(ef.x-12, ef.y-12, 24, 24,
+                         e.x - e.hw, e.y - e.hh, e.hw*2, e.hh*2)) {
+          damageEnemy(e, 3, 'fireball');
+          spawnParticles(ef.x, ef.y, '#ff8800', 12);
+          ef.active = false;
+          break;
+        }
+      }
+      if (ef.active && gs.boss && !gs.boss.dying && !gs.boss.entering) {
+        const hb = bossHitbox(gs.boss);
+        if (rectsOverlap(ef.x-12, ef.y-12, 24, 24, hb.x, hb.y, hb.w, hb.h)) {
+          damageBoss(1);
+          spawnParticles(ef.x, ef.y, '#ff8800', 14);
+          ef.active = false;
+        }
+      }
+    } else {
+      // Inkommande: skadar spelaren
+      if (!blob.invincible &&
+          rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                       ef.x-12, ef.y-12, 24, 24)) {
+        blobHurt();
+        spawnParticles(ef.x, ef.y, '#ff3300', 12);
+        ef.active = false;
+      }
+    }
+
+    if (!ef.active || ef.x < -60 || ef.x > canvas.width + 60) {
+      gs.enemyFireballs.splice(i, 1);
+    }
+  }
+}
+
+function drawEnemyFireballs() {
+  for (const ef of gs.enemyFireballs) {
+    const pulse = Math.sin(ef.t * 0.35) * 3;
+    // Reflekterad = vänlig (gul/orange som spelarens), inkommande = aggressiv (mörkröd)
+    const friendly = ef.reflected;
+    const trailCol = friendly ? '#ff5500' : '#cc1100';
+    const trailDir = ef.vx > 0 ? -1 : 1;
+    for (let t = 4; t >= 1; t--) {
+      ctx.globalAlpha = 0.08 * t;
+      ctx.fillStyle = trailCol;
+      ctx.beginPath();
+      ctx.arc(ef.x + t*9*trailDir, ef.y + Math.sin(ef.t*0.2+t)*3, 8-t, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const gr = ctx.createRadialGradient(ef.x, ef.y, 0, ef.x, ef.y, 18+pulse);
+    if (friendly) {
+      gr.addColorStop(0,   'rgba(255,220,60,0.95)');
+      gr.addColorStop(0.45,'rgba(255,100,0,0.6)');
+      gr.addColorStop(1,   'rgba(255,40,0,0)');
+    } else {
+      gr.addColorStop(0,   'rgba(255,120,40,0.95)');
+      gr.addColorStop(0.45,'rgba(180,20,0,0.65)');
+      gr.addColorStop(1,   'rgba(60,0,0,0)');
+    }
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(ef.x, ef.y, 18+pulse, 0, Math.PI*2); ctx.fill();
+    // Kärna
+    ctx.fillStyle = friendly ? '#fff8aa' : '#ffaa44';
+    ctx.beginPath(); ctx.arc(ef.x, ef.y, 7, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ── ENEMIES ───────────────────────────────────────────────────────────────────
+function spawnEnemy() {
+  // Blue goblin milestone: one per 500 pts, at most one active at a time
+  const blueActive = gs.enemies.some(e => e.isBlue && !e.dead);
+  if (!blueActive && gs.score >= gs.nextHeartScore) {
+    gs.nextHeartScore += 500;
+    gs.enemies.push({
+      type:'goblin', isBlue:true,
+      x:canvas.width+40, y:308,
+      hw:18, hh:22,
+      hp:1, maxHp:1,
+      speed: 2.2 + Math.random()*0.8,
+      dead:false, deathT:0, ft:0,
+    });
+    return;
+  }
+
+  // Fire goblin: ovanlig variant från fas 2+, långsammare än vanlig goblin men skjuter eldbollar
+  const spawnFireGoblin = gs.phase >= 2 && Math.random() < 0.10;
+  if (spawnFireGoblin) {
+    gs.enemies.push({
+      type:'goblin', isFire:true,
+      x:canvas.width+40, y:308,
+      hw:18, hh:22,
+      hp:1, maxHp:1,
+      speed: 1.3 + Math.random()*0.5 + (gs.phase-2)*0.2,  // klart långsammare än vanlig
+      dead:false, deathT:0, ft:0,
+      shootTimer: 90 + Math.floor(Math.random()*60),  // första skott 1.5–2.5s efter spawn
+    });
+    return;
+  }
+
+  const GIANT_COOLDOWN = 480; // 8 seconds at 60 fps
+  const spawnGiant = gs.phase >= 2
+    && Math.random() < 0.25
+    && gs.frame - gs.lastGiantFrame >= GIANT_COOLDOWN;
+  if (spawnGiant) {
+    gs.lastGiantFrame = gs.frame;
+    gs.enemies.push({
+      type:'giant', x:canvas.width+70, y:308,
+      hw:35, hh:40,
+      hp:3, maxHp:3,
+      speed: 1.2 + Math.random()*0.8 + (gs.phase-1)*0.3,
+      dead:false, deathT:0, ft:0,
+    });
+  } else {
+    gs.enemies.push({
+      type:'goblin', isBlue:false,
+      x:canvas.width+40, y:308,
+      hw:18, hh:22,
+      hp:1, maxHp:1,
+      speed: 2.5 + Math.random()*1.5 + (gs.phase-1)*0.5,
+      dead:false, deathT:0, ft:0,
+    });
+  }
+}
+
+function damageEnemy(e, dmg, source) {
+  if (e.dead) return;
+  e.hp -= dmg;
+  const partCol = e.isBlue ? '#88ccff' : e.isFire ? '#ffaa33' : '#ffff44';
+  spawnParticles(e.x, e.y - e.hh, partCol, 7);
+  if (e.hp > 0) snd.hit();
+  if (e.hp <= 0) {
+    e.dead   = true;
+    e.deathT = source === 'fireball' ? 6 : 28;
+    if (source === 'fireball') {
+      if (gs.icePower) { spawnIceExplosion(e.x, e.y, e.type); snd.iceExplode(); }
+      else             { spawnFireballExplosion(e.x, e.y, e.type); snd.explode(); }
+    } else {
+      if (e.type === 'giant') snd.giantDie();
+      else if (e.type === 'bat') snd.batDie();
+      else snd.die();
+    }
+    if (e.isBlue) {
+      // Extra life + floating heart animation
+      const targetX = 26 + blob.lives * 36;
+      const targetY = 24;
+      blob.lives++;
+      blob.maxLives = Math.max(blob.maxLives, blob.lives);
+      spawnParticles(e.x, e.y - e.hh, '#ff88aa', 14);
+      snd.heart();
+      gs.heartAnims.push({
+        x: e.x, y: e.y - e.hh,
+        tx: targetX, ty: targetY,
+        t: 0, maxT: 70,
+      });
+    } else {
+      // Pausad poäng under aktiv bossfight – undviker farming på minisniglar mm.
+      const scoreFrozen = gs.boss && !gs.boss.dying;
+      if (!scoreFrozen) {
+        if (e.type === 'bat')                       gs.distance += 240;  // 20 pts
+        else if (e.type === 'goblin' && e.isFire)   gs.distance += 240;  // 20 pts (svårare)
+        else if (e.type === 'goblin')               gs.distance += 120;  // 10 pts
+        else if (e.type === 'mini-snail')           gs.distance += 0;    // boss-minion, ingen poäng
+        else                                        gs.distance += 360;  // giant
+      }
+      if (e.type === 'giant' && gs.phase === 1) gs.phase = 2;
+    }
+  }
+}
+
+// ── BAT MOVEMENT ──────────────────────────────────────────────────────────────
+function updateBatMovement(bat) {
+  if (bat.batState === 'flying') {
+    bat.x -= bat.speed;
+    bat.y = bat.baseY + Math.sin(bat.ft * 0.10) * 12;
+    // Attack trigger when bat is just ahead of blob
+    if (bat.x < blob.x + 210 && bat.x > blob.x - 40) {
+      bat.batState = 'attacking';
+      snd.batShriek();
+      if (blob.jumping) {
+        // Air attack: fast horizontal dash, slight vertical tracking
+        bat.attackMode = 'air';
+        bat.vx = -(bat.speed + 4);
+        bat.vy = (blob.y - bat.y) * 0.06;
+      } else {
+        // Ground dive: diagonal toward blob
+        bat.attackMode = 'ground';
+        const dx = blob.x - bat.x;
+        const dy = blob.y - bat.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const spd  = bat.speed + 5;
+        bat.vx = (dx / dist) * spd;
+        bat.vy = (dy / dist) * spd;
+      }
+    }
+    if (bat.x < -100) { bat.dead = true; bat.deathT = 1; } // flew past, remove silently
+  } else {
+    // Attacking: move on fixed trajectory
+    bat.x += bat.vx;
+    bat.y += bat.vy;
+    // Collision with blob
+    if (!blob.invincible) {
+      if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                       bat.x - bat.hw, bat.y - bat.hh, bat.hw*2, bat.hh*2)) {
+        blobHurt();
+        bat.dead   = true;
+        bat.deathT = 18;
+        return;
+      }
+    }
+    // Off-screen cleanup
+    if (bat.x < -80 || bat.y > canvas.height + 20 || bat.y < -50) {
+      bat.dead = true; bat.deathT = 1;
+    }
+  }
+}
+
+function updateEnemies() {
+  for (let i = gs.enemies.length-1; i >= 0; i--) {
+    const e = gs.enemies[i];
+
+    // ── Bat: fully custom update ──────────────────────────────────────────────
+    if (e.type === 'bat') {
+      e.ft++;
+      if (e.dead) { if (--e.deathT <= 0) gs.enemies.splice(i, 1); }
+      else         updateBatMovement(e);
+      continue;
+    }
+
+    e.ft++;
+    if (e.dead) {
+      if (--e.deathT <= 0) gs.enemies.splice(i, 1);
+      continue;
+    }
+    e.x -= e.speed;
+    e.wobble += 0.13 * e.wobDir;
+    if (Math.abs(e.wobble) > 0.1) e.wobDir *= -1;
+
+    // ── Fire Goblin skjuter eldboll var ~5:e sekund ─────────────────────────
+    if (e.type === 'goblin' && e.isFire) {
+      e.shootTimer--;
+      // Endast när goblinen är synlig på skärmen och faktiskt framför spelaren
+      if (e.shootTimer <= 0 && e.x < canvas.width - 20 && e.x > blob.x + 40) {
+        spawnEnemyFireball(e.x - 14, 300);  // ~brösthöjd, samma y-höjd som spelarens fb
+        snd.fireGoblinShoot();
+        e.shootTimer = 300;  // 5 sekunder
+      }
+    }
+
+    // Collision with blob
+    if (!blob.invincible) {
+      // Goblins can be jumped over – skip when blob is clearly airborne
+      if (e.type === 'goblin' && blob.jumping && blob.y < blob.groundY - 15) {
+        // no collision
+      } else {
+        // Giants have a tall extended hitbox so they can't be jumped over
+        const topExt = e.type === 'giant' ? 55 : 0;
+        if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                         e.x-e.hw, e.y-e.hh-topExt, e.hw*2, e.hh*2+topExt)) {
+          blobHurt();
+          e.dead   = true;
+          e.deathT = 18;
+        }
+      }
+    }
+    if (e.x < -120) gs.enemies.splice(i, 1);
+  }
+}
+
+// ── PARTICLES ─────────────────────────────────────────────────────────────────
+function spawnParticles(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI*2/n)*i + Math.random()*0.6;
+    gs.particles.push({
+      x, y,
+      vx: Math.cos(a) * (2+Math.random()*3.5),
+      vy: Math.sin(a) * (2+Math.random()*3.5) - 1.5,
+      life: 30 + Math.random()*15 | 0,
+      maxLife: 45,
+      color,
+      size: 2 + Math.random()*3,
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = gs.particles.length-1; i >= 0; i--) {
+    const p = gs.particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life--;
+    if (p.life <= 0) gs.particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of gs.particles) {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle   = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (p.life/p.maxLife), 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ── FIREBALL EXPLOSIONS (Style B – Megaexplosion) ────────────────────────────
+function spawnFireballExplosion(x, y, type) {
+  const debris = [];
+  const n = type === 'giant' ? 32 : 22;
+  for (let i = 0; i < n; i++) {
+    debris.push({
+      angle: Math.random() * Math.PI * 2,
+      speed: Math.random() * 3 + 1.5,
+      size:  Math.floor(Math.random() * 5) + 3,
+      col:   ['#ff8800','#ff4400','#cc2200','#888888','#555555'][Math.floor(Math.random() * 5)],
+      delay: Math.random() * 0.1,
+    });
+  }
+  const radius = type === 'giant' ? 64 : 48;
+  gs.fireballExplosions.push({ x, y, t: 0, maxT: 90, radius, debris });
+}
+
+function updateFireballExplosions() {
+  for (let i = gs.fireballExplosions.length - 1; i >= 0; i--) {
+    gs.fireballExplosions[i].t++;
+    if (gs.fireballExplosions[i].t >= gs.fireballExplosions[i].maxT)
+      gs.fireballExplosions.splice(i, 1);
+  }
+}
+
+function drawFireballExplosions() {
+  for (const ex of gs.fireballExplosions) {
+    const p  = ex.t / ex.maxT;
+    const cx = ex.x;
+    const cy = ex.y - 28;
+    const R  = ex.radius;
+
+    // Debris pixels
+    const dp = Math.max(0, (p - 0.05) / 0.95);
+    for (const d of ex.debris) {
+      if (dp < d.delay) continue;
+      const lp = Math.min((dp - d.delay) / 0.7, 1);
+      const dx = cx + Math.cos(d.angle) * d.speed * lp * 55;
+      const dy = cy + Math.sin(d.angle) * d.speed * lp * 40 + easeIn(lp) * 90;
+      if (dy > GROUND_Y + 4) continue;
+      ctx.globalAlpha = Math.max(0, 1 - lp * 0.85);
+      ctx.fillStyle = d.col;
+      ctx.fillRect(dx, dy, d.size, d.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ── GIFT (Present A) ─────────────────────────────────────────────────────────
+function spawnGift() {
+  gs.gifts.push({ x: canvas.width + 30, y: 308, hw: 20, hh: 18, dead: false, deathT: 0, ft: 0 });
+}
+
+function updateGifts() {
+  for (let i = gs.gifts.length - 1; i >= 0; i--) {
+    const g = gs.gifts[i];
+    g.ft++;
+    if (g.dead) { if (--g.deathT <= 0) gs.gifts.splice(i, 1); continue; }
+    g.x -= gs.worldSpeed * 0.95;
+    if (g.x < -60) gs.gifts.splice(i, 1);
+  }
+}
+
+function drawGifts() {
+  for (const g of gs.gifts) {
+    const bobY = Math.floor(g.ft / 8) % 2 === 0 ? 0 : -P;
+    ctx.save();
+    ctx.translate(Math.round(g.x), Math.round(g.y) + bobY);
+    if (g.dead) ctx.globalAlpha = g.deathT / 6;
+    drawPresent();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawPresent() {
+  const ox = -4*P, oy = -9*P;
+  // Box body
+  ctx.fillStyle = '#cc3366'; ctx.fillRect(ox,     oy+5*P, 8*P, 4*P);
+  ctx.fillStyle = '#991144'; ctx.fillRect(ox,     oy+8*P, 8*P, P);
+  ctx.fillStyle = '#ff5588'; ctx.fillRect(ox,     oy+5*P, 8*P, P);
+  // Ribbon
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox+3*P, oy+5*P, 2*P, 4*P);
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox,     oy+6*P, 8*P, 2*P);
+  ctx.fillStyle = '#ffaa00'; ctx.fillRect(ox+3*P, oy+6*P, 2*P, 2*P);
+  // Bow loops
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox+P,   oy+2*P, 2*P, 3*P);
+  ctx.fillStyle = '#ffdd44'; ctx.fillRect(ox+5*P, oy+2*P, 2*P, 3*P);
+  ctx.fillStyle = '#ffaa00'; ctx.fillRect(ox+P,   oy+4*P, 2*P, P);
+  ctx.fillStyle = '#ffaa00'; ctx.fillRect(ox+5*P, oy+4*P, 2*P, P);
+  ctx.fillStyle = '#ffee88'; ctx.fillRect(ox+P,   oy+2*P, P,   P);
+  ctx.fillStyle = '#ffee88'; ctx.fillRect(ox+5*P, oy+2*P, P,   P);
+  // Knot
+  ctx.fillStyle = '#ffcc00'; ctx.fillRect(ox+3*P, oy+3*P, 2*P, 2*P);
+  // Box outline
+  ctx.fillStyle = '#220011';
+  ctx.fillRect(ox-1,   oy+5*P, 1,   4*P);
+  ctx.fillRect(ox+8*P, oy+5*P, 1,   4*P);
+  ctx.fillRect(ox,     oy+9*P, 8*P, 1);
+  // Sparkle
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(ox+7*P, oy,     P, P);
+  ctx.fillRect(ox+7*P, oy+2*P, 2, 2);
+}
+
+function spawnConfetti(x, y) {
+  for (const col of ['#ff4466','#ff8800','#ffdd00','#44cc44','#44aaff','#cc44ff','#ff44cc','#ffffff']) {
+    spawnParticles(x, y, col, 4);
+  }
+}
+
+// ── ICE POWER ─────────────────────────────────────────────────────────────────
+function activateIcePower() {
+  gs.icePower    = true;
+  gs.icePowerEnd = performance.now() + 10000;
+  blob.specialCD = 0;
+  snd.iceActivate();
+}
+
+// ── ICE EXPLOSION (Style C – snowflake burst + snow) ─────────────────────────
+function spawnIceExplosion(x, y, type) {
+  const n = type === 'giant' ? 36 : 24;
+  const snow = [];
+  for (let i = 0; i < n; i++) {
+    snow.push({
+      ox:    (Math.random() - 0.5) * 30,
+      vx:    (Math.random() - 0.5) * 1.5,
+      vy:   -(Math.random() * 2 + 0.5),
+      size:  Math.floor(Math.random() * 3) + 2,
+      col:   Math.random() > 0.55 ? '#ffffff' : '#aaddff',
+      delay: Math.random() * 18 | 0,
+    });
+  }
+  gs.iceExplosions.push({ x, y, t: 0, maxT: 90, snow });
+}
+
+function updateIceExplosions() {
+  for (let i = gs.iceExplosions.length - 1; i >= 0; i--) {
+    gs.iceExplosions[i].t++;
+    if (gs.iceExplosions[i].t >= gs.iceExplosions[i].maxT) gs.iceExplosions.splice(i, 1);
+  }
+}
+
+function drawIceExplosions() {
+  for (const ex of gs.iceExplosions) {
+    const p  = ex.t / ex.maxT;
+    const cx = ex.x, cy = ex.y - 28;
+
+    // Expanding 8-arm snowflake (p: 0.05 → 0.55)
+    if (p >= 0.05 && p < 0.55) {
+      const rp = (p - 0.05) / 0.50;
+      const r  = easeOut(rp) * 52;
+      ctx.globalAlpha = Math.max(0, 1 - rp);
+      for (let arm = 0; arm < 8; arm++) {
+        const ang = (arm / 8) * Math.PI * 2;
+        for (let seg = 0; seg < 4; seg++) {
+          const dist = r * (seg + 1) / 4;
+          const px = cx + Math.cos(ang) * dist;
+          const py = cy + Math.sin(ang) * dist * 0.65;
+          ctx.fillStyle = seg < 2 ? '#ffffff' : '#88ccff';
+          ctx.fillRect(px - 3, py - 3, 6, 6);
+          if (seg === 1 || seg === 2) {
+            const bx = cx + Math.cos(ang + 0.6) * dist * 0.7;
+            const by = cy + Math.sin(ang + 0.6) * dist * 0.65 * 0.7;
+            ctx.fillStyle = '#aaddff';
+            ctx.fillRect(bx - 2, by - 2, 4, 4);
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Snow particles fall (p: 0.22 → 1.0)
+    if (p >= 0.22) {
+      const ap = (p - 0.22) / 0.78;
+      for (const s of ex.snow) {
+        const dl = s.delay / ex.maxT;
+        if (ap < dl) continue;
+        const lp = Math.min((ap - dl) / 0.65, 1);
+        const x  = cx + s.ox + s.vx * lp * 45;
+        const y  = cy - 30 + s.vy * lp * 35 + easeIn(lp) * 75;
+        if (y > GROUND_Y + 4) continue;
+        ctx.globalAlpha = Math.max(0, 1 - lp * 0.8);
+        ctx.fillStyle = s.col;
+        ctx.fillRect(x, y, s.size, s.size);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// ── ICE BAR (Style A – same blocks as flame bar, dark→light blue, snowflake) ──
+function drawIceBar(x, y, fill) {
+  const NBLOCKS = 10, BW = 2*P, BH = 5*P;
+  const filled  = Math.round(fill * NBLOCKS);
+  function blockCol(i) {
+    if (i < 3) return '#001855';
+    if (i < 6) return '#0044aa';
+    if (i < 8) return '#0088dd';
+    return '#44ccff';
+  }
+  ctx.fillStyle = '#050a1a';
+  ctx.fillRect(x-2, y-2, NBLOCKS*BW+4, BH+4);
+  for (let i = 0; i < NBLOCKS; i++) {
+    const bx = x + i*BW;
+    ctx.fillStyle = i < filled ? blockCol(i) : '#0a0a20';
+    ctx.fillRect(bx, y, BW, BH);
+    if (i < filled) {
+      ctx.fillStyle = 'rgba(180,240,255,0.35)';
+      ctx.fillRect(bx, y, BW, P);
+    }
+    ctx.fillStyle = '#050a1a';
+    if (i < NBLOCKS-1) ctx.fillRect(bx+BW-1, y, 1, BH);
+  }
+  // Pixel snowflake on top when ready
+  if (fill >= 1) {
+    const fx = x + 3*BW, fy = y - 6*P;
+    for (const [gy, gx, c] of [
+      [0,2,'#aaddff'],[0,3,'#aaddff'],
+      [1,0,'#aaddff'],[1,2,'#ffffff'],[1,3,'#ffffff'],[1,5,'#aaddff'],
+      [2,1,'#aaddff'],[2,2,'#88ccff'],[2,3,'#88ccff'],[2,4,'#aaddff'],
+      [3,1,'#aaddff'],[3,2,'#88ccff'],[3,3,'#88ccff'],[3,4,'#aaddff'],
+      [4,0,'#aaddff'],[4,2,'#ffffff'],[4,3,'#ffffff'],[4,5,'#aaddff'],
+      [5,2,'#aaddff'],[5,3,'#aaddff'],
+    ]) { ctx.fillStyle = c; ctx.fillRect(fx+gx*P, fy+gy*P, P, P); }
+  }
+}
+
+// ── BACKGROUND (Style D – pastel chibi) ──────────────────────────────────────
+function updateBackground() {
+  // Pausa allt scroll under bossfight – ger känslan av att stå still och slåss
+  if (gs.boss || gs.bossDefeated) return;
+  gs.bgScroll += gs.worldSpeed * 0.22;
+  gs.mgScroll += gs.worldSpeed * 0.50;
+  gs.fgScroll += gs.worldSpeed;
+}
+
+const GROUND_Y = 345;
+
+// Sky palettes per phase
+const SKY = [
+  ['#aaddff','#cceeff','#bbffee'],  // phase 1: pastel blue→teal
+  ['#ffccaa','#ffaabb','#ffd0cc'],  // phase 2: pastel peach→pink sunset
+  ['#aabbdd','#8899cc','#6677aa'],  // phase 3: periwinkle night
+];
+const GROUND_COL  = ['#99dd66','#ddbb77','#667799'];
+const GROUND_DARK = ['#77bb44','#bb9944','#445566'];
+
+function drawBackground() {
+  const ph = Math.min(gs.phase, 3) - 1;
+  const [s0, s1, s2] = SKY[ph];
+
+  // Sky — two-tone flat pastel blocks (pixel art feel, no smooth gradient)
+  ctx.fillStyle = s0; ctx.fillRect(0, 0,           canvas.width, GROUND_Y * 0.45 | 0);
+  ctx.fillStyle = s1; ctx.fillRect(0, GROUND_Y*0.45|0, canvas.width, GROUND_Y * 0.35 | 0);
+  ctx.fillStyle = s2; ctx.fillRect(0, GROUND_Y*0.80|0, canvas.width, GROUND_Y * 0.22 | 0);
+
+  // Clouds (phase 1 & 2)
+  if (gs.phase < 3) drawPixelClouds(gs.bgScroll * 0.18);
+  // Stars (phase 3)
+  if (gs.phase >= 3) drawStars(gs.bgScroll * 0.06);
+
+  // BG hills — blocky pixel-art humps
+  drawPixelHills(gs.bgScroll * 0.22, GROUND_Y - 60, ph);
+
+  // Midground trees / cacti / mushrooms
+  if (gs.phase === 1) drawPixelTrees(gs.mgScroll, GROUND_Y);
+  if (gs.phase === 2) drawPixelCacti(gs.mgScroll, GROUND_Y);
+  if (gs.phase >= 3)  drawPixelMushrooms(gs.mgScroll, GROUND_Y);
+
+  // Ground
+  ctx.fillStyle = GROUND_COL[ph];
+  ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+  // Ground edge — 2 darker pixel rows
+  ctx.fillStyle = GROUND_DARK[ph];
+  ctx.fillRect(0, GROUND_Y,   canvas.width, P);
+  ctx.fillStyle = GROUND_COL[ph];
+  ctx.fillRect(0, GROUND_Y+P, canvas.width, P);
+
+  // Foreground flowers / details
+  drawFgFlowers(gs.fgScroll, GROUND_Y, gs.phase);
+}
+
+function drawPixelClouds(scroll) {
+  const spacing = 220;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*6)) + spacing*6) % (spacing*6) | 0;
+    const y = 28 + (i % 3) * 18;
+    // Cloud: pixel block clusters (each "pixel" = 8px wide)
+    const CP = 8;
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    for (const [cx,cy,cw,ch] of [
+      [x-16,y,   40, CP],  // main body
+      [x-8, y-CP,24, CP],  // top bump
+      [x+8, y-CP,16, CP],  // right bump
+      [x-24,y+CP,16, CP],  // bottom-left
+      [x+16,y+CP,16, CP],  // bottom-right
+    ]) ctx.fillRect(cx, cy, cw, ch);
+  }
+}
+
+function drawStars(scroll) {
+  // Static-ish stars via deterministic positions
+  for (let i = 0; i < 40; i++) {
+    const x = ((i * 193 + 47) % canvas.width);
+    const y = (i * 77 + 11) % (GROUND_Y * 0.75) | 0;
+    const bright = (i % 3 === 0) ? '#ffffff' : '#bbccdd';
+    ctx.fillStyle = bright;
+    ctx.fillRect(x, y, (i%4 < 2)?2:4, (i%4 < 2)?2:4);
+  }
+}
+
+function drawPixelHills(scroll, baseY, ph) {
+  const hillCol = ['#88cc66','#ddaa66','#8899bb'][ph];
+  const spacing = 200;
+  ctx.fillStyle = hillCol;
+  ctx.globalAlpha = 0.55;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*7)) + spacing*7) % (spacing*7) | 0;
+    // Stepped pixel hill
+    const w = 90, h = 50;
+    for (let step = 0; step < 5; step++) {
+      const sw = w - step*14, sh = P;
+      ctx.fillRect(x - sw/2, baseY + step*P, sw, sh);
+    }
+    ctx.fillRect(x - 20, baseY + 5*P, 40, (h - 5*P));
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPixelTrees(scroll, groundY) {
+  const spacing = 180;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*8)) + spacing*8) % (spacing*8) | 0;
+    // Pixel trunk
+    ctx.fillStyle = '#886644';
+    ctx.fillRect(x-P, groundY-12*P, 2*P, 12*P);
+    // Pixel canopy — stepped triangular layers
+    const layers = [[0,6,P*5,'#66cc55'],[P,4,P*8,'#55bb44'],[P*2,3,P*7,'#44aa33'],[P*3,2,P*6,'#77dd66']];
+    for (const [dy, hw, h, c] of layers) {
+      ctx.fillStyle = c;
+      ctx.fillRect(x - hw*P/2, groundY - 14*P - dy*2 - h, hw*P, h);
+    }
+  }
+}
+
+function drawPixelCacti(scroll, groundY) {
+  const spacing = 190;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*7)) + spacing*7) % (spacing*7) | 0;
+    ctx.fillStyle = '#88bb55';
+    // Main trunk
+    ctx.fillRect(x-P, groundY-14*P, 2*P, 14*P);
+    // Left arm
+    ctx.fillRect(x-4*P, groundY-10*P, P, 4*P);
+    ctx.fillRect(x-4*P, groundY-14*P, 3*P, P);
+    // Right arm
+    ctx.fillRect(x+3*P, groundY-8*P, P, 4*P);
+    ctx.fillRect(x+2*P, groundY-12*P, 3*P, P);
+    // Outline
+    ctx.fillStyle = '#557733';
+    ctx.fillRect(x-P-P, groundY-14*P, P, 14*P);
+  }
+}
+
+function drawPixelMushrooms(scroll, groundY) {
+  const spacing = 170;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*7)) + spacing*7) % (spacing*7) | 0;
+    // Stem
+    ctx.fillStyle = '#ccbbaa'; ctx.fillRect(x-P, groundY-6*P, 2*P, 6*P);
+    // Cap
+    ctx.fillStyle = '#cc4466';
+    ctx.fillRect(x-4*P, groundY-10*P, 8*P, P);
+    ctx.fillRect(x-5*P, groundY-11*P, 10*P, P);
+    ctx.fillRect(x-5*P, groundY-12*P, 10*P, P);
+    ctx.fillRect(x-4*P, groundY-13*P, 8*P, P);
+    ctx.fillRect(x-3*P, groundY-14*P, 6*P, P);
+    // Spots
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x-2*P, groundY-12*P, P, P);
+    ctx.fillRect(x+2*P, groundY-11*P, P, P);
+  }
+}
+
+function drawFgFlowers(scroll, groundY, phase) {
+  const spacing = 100;
+  for (let i = -1; i < canvas.width/spacing + 2; i++) {
+    const x = ((i*spacing - scroll % (spacing*9)) + spacing*9) % (spacing*9) | 0;
+    if (phase === 1) {
+      // Pink flower
+      ctx.fillStyle = '#ff99cc';
+      ctx.fillRect(x-P, groundY-3*P, P, P); ctx.fillRect(x+P, groundY-3*P, P, P);
+      ctx.fillRect(x, groundY-4*P, P, P);   ctx.fillRect(x, groundY-2*P, P, P);
+      ctx.fillStyle = '#ffee44';
+      ctx.fillRect(x, groundY-3*P, P, P);
+      ctx.fillStyle = '#55aa33';
+      ctx.fillRect(x, groundY-2*P, P, 2*P);
+    } else if (phase === 2) {
+      // Small cactus/shrub
+      ctx.fillStyle = '#aacc55';
+      ctx.fillRect(x, groundY-4*P, P, 4*P);
+      ctx.fillRect(x-P, groundY-3*P, P, P);
+      ctx.fillRect(x+P, groundY-2*P, P, P);
+    } else {
+      // Glowing mushroom stub
+      ctx.fillStyle = '#cc4488';
+      ctx.fillRect(x-P, groundY-3*P, 3*P, P);
+      ctx.fillRect(x-P, groundY-4*P, 3*P, P);
+      ctx.fillStyle = '#ff88cc'; ctx.fillRect(x, groundY-4*P, P, P); // glow top
+      ctx.fillStyle = '#ccbbaa'; ctx.fillRect(x, groundY-2*P, P, 2*P);
+    }
+  }
+}
+
+// ── DRAW BLOB (pixel art, SNES/GBA style) ────────────────────────────────────
+function drawBlob() {
+  if (!blob.visible) return;
+  const wx = blob.x - 7*P, wy = blob.y + blob.bobOff - 6*P; // top-left of sprite grid
+
+  // Shadow – follows ground when jumping
+  if (blob.jumping) {
+    const groundWY = blob.groundY - 6*P; // ground-level wy
+    const lift = blob.groundY - blob.y;
+    const scale = Math.max(0.3, 1 - lift / 130);
+    const sw = Math.round(10*P * scale), sh = Math.round(2*P * scale);
+    const sx = blob.x - sw/2, sy = groundWY + 11*P + Math.round(P * (1-scale));
+    ctx.fillStyle = `rgba(0,0,0,${0.18 * scale})`;
+    ctx.fillRect(sx, sy, sw, sh);
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(wx + 2*P, wy + 11*P, 10*P, 2*P);
+  }
+
+  const O = '#1a3a1a'; // outline
+  const G = '#55bb55'; // body green
+  const L = '#aaee88'; // highlight
+  const D = '#2a7a2a'; // shadow
+
+  // Body rows: [gy, x0, x1] — sprite is 15 wide × 10 tall, squished (wider than tall)
+  const body = [
+    [-1, 4, 10],   // top cap (7 wide)
+    [ 0, 2, 12],   // widening
+    [ 1, 1, 13],   // widest (13 wide)
+    [ 2, 1, 13],
+    [ 3, 1, 13],
+    [ 4, 1, 13],   // eye rows
+    [ 5, 1, 13],
+    [ 6, 1, 13],
+    [ 7, 2, 12],   // narrowing
+    [ 8, 4, 10],   // bottom cap
+  ];
+
+  // Outline (1-px border by drawing wider rows first)
+  ctx.fillStyle = O;
+  prow(wx, wy, -2, 3, 11, O);              // top cap outline
+  for (const [gy, x0, x1] of body) prow(wx, wy, gy, x0-1, x1+1, O);
+  prow(wx, wy,  9, 3, 11, O);              // bottom cap outline
+
+  // Body fill + shading
+  for (const [gy, x0, x1] of body) {
+    prow(wx, wy, gy, x0, x1, G);
+    prow(wx, wy, gy, x0,   x0+1, gy <= 3 ? L : G); // left highlight
+    px(wx, wy, x1, gy, D);                           // right shadow
+  }
+
+  // Eyes — 2×2 pixel blocks
+  // Left eye
+  prow(wx, wy, 4, 3, 4, '#ffffff');
+  prow(wx, wy, 5, 3, 4, '#ffffff');
+  px(wx, wy, 3, 5, '#ffddcc'); px(wx, wy, 4, 5, '#cc4433');
+  px(wx, wy, 3, 4, '#ffffff'); // shine
+  // Right eye
+  prow(wx, wy, 4, 9, 10, '#ffffff');
+  prow(wx, wy, 5, 9, 10, '#ffffff');
+  px(wx, wy, 9, 5, '#ffddcc'); px(wx, wy,10, 5, '#cc4433');
+  px(wx, wy, 9, 4, '#ffffff'); // shine
+
+  // Mouth pixels
+  px(wx, wy, 6, 7, O); px(wx, wy, 7, 7, O); px(wx, wy, 8, 7, O);
+  px(wx, wy, 5, 8, O); px(wx, wy, 9, 8, O);
+
+  // Sword
+  const angle = blob.attacking ? blob.atkAngle : 0.3;
+  drawSword(blob.x, blob.y + blob.bobOff, angle, blob.attacking, blob.atkTimer);
+}
+
+function drawSword(bx, by, angle, swinging, atkTimer) {
   ctx.save();
-  ctx.font = '38px "Press Start 2P", monospace';
-  ctx.fillStyle = '#cc77ff';
-  ctx.shadowColor = '#aa44ff';
-  ctx.shadowBlur = 8 + 16 * pulse;
-  ctx.textAlign = 'center';
-  ctx.fillText('?', cx, cy - 8);
+  ctx.translate(bx + 7*P, by - 3*P);
+  ctx.rotate(angle);
+
+  // Blade — pixel columns
+  for (let g = -10; g <= -1; g++) {
+    ctx.fillStyle = g >= -3 ? '#aaaaaa' : '#dddddd';
+    ctx.fillRect(-P, g*P, P, P);
+    if (g <= -4) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, g*P, P, P); }
+  }
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(-P, -11*P, P, P); // tip
+
+  // Guard (3 wide × 1 tall)
+  ctx.fillStyle = '#ffcc00'; ctx.fillRect(-2*P, 0, 3*P, P);
+  ctx.fillStyle = '#cc9900'; ctx.fillRect(-2*P, 0, P, P);
+
+  // Handle
+  ctx.fillStyle = '#884422'; ctx.fillRect(-P, P, P, 3*P);
+  ctx.fillStyle = '#552200'; ctx.fillRect(-P, 3*P, P, P);
+
+  // Swing arc
+  if (swinging && atkTimer < 14) {
+    ctx.globalAlpha = 0.4 - atkTimer * 0.025;
+    ctx.strokeStyle = '#aaddff'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, 0, 44, -1.2, 0.5); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
 }
 
-// ── LABELS ───────────────────────────────────────────────────────────────────
-function drawLabels() {
-  ctx.font = '8px "Press Start 2P"';
+// ── DRAW ENEMIES ──────────────────────────────────────────────────────────────
+function drawEnemies() {
+  for (const e of gs.enemies) {
+    if (e.dead) {
+      if (e.deathT > 12) {
+        ctx.globalAlpha = (e.deathT - 12) / 16;
+        drawEnemy(e, true);
+        ctx.globalAlpha = 1;
+      }
+      continue;
+    }
+    drawEnemy(e, false);
+  }
+}
+
+function drawEnemy(e, flash) {
+  // Bat: uses absolute coordinates — draw directly and return
+  if (e.type === 'bat') { drawBat(e, flash); return; }
+  // Mini-snail: uses absolute coordinates too, has its own helper
+  if (e.type === 'mini-snail') { drawMiniSnail(e, flash); return; }
+
+  // Pixel-aligned walk animation — integer pixel offsets only, no rotation
+  const bobY = e.type === 'goblin'
+    ? (Math.floor(e.ft / 7) % 2 === 0 ? 0 : -P)       // goblin: fast 2-frame hop
+    : (Math.floor(e.ft / 18) % 2 === 0 ? 0 : -P);      // giant:  slow stomp
+  ctx.save();
+  ctx.translate(Math.round(e.x), Math.round(e.y) + bobY);
+  if (e.type === 'goblin') drawGoblin(flash, e.isBlue, e.isFire);
+  else                     drawGiant(e.hp, e.maxHp, flash);
+  ctx.restore();
+
+  // HP bar for giant
+  if (e.type === 'giant' && !e.dead) {
+    const bw = 62, bh = 8;
+    const bx = e.x - bw/2, by = e.y - e.hh - 16;
+    ctx.fillStyle = '#222';    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = e.hp>1?'#ff5533':'#ff2222';
+    ctx.fillRect(bx, by, bw * e.hp/e.maxHp, bh);
+    ctx.strokeStyle = '#666'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, bw, bh);
+  }
+}
+
+function drawGoblin(flash, isBlue, isFire) {
+  // Pixel art goblin — origin is entity (e.x, e.y), draw upward
+  // Sprite: 9 wide × 14 tall in grid units, origin at bottom-center
+  const wx = -5*P, wy = -14*P; // top-left of sprite relative to translate origin
+  let O, G, Gd, Gl;
+  if (flash) {
+    O = '#ffffff'; G = '#ffffff'; Gd = '#dddddd'; Gl = '#ffffff';
+  } else if (isFire) {
+    O = '#3a0a02'; G = '#ee4422'; Gd = '#aa2010'; Gl = '#ff8833';
+  } else if (isBlue) {
+    O = '#0a1a3a'; G = '#4488ee'; Gd = '#2255aa'; Gl = '#88bbff';
+  } else {
+    O = '#1a3a1a'; G = '#44bb55'; Gd = '#2a8a33'; Gl = '#66dd77';
+  }
+
+  // Fire goblin: pulsande röd glöd (mer hetluft än Blue's mjuka sken)
+  if (isFire && !flash) {
+    const pulse = 0.40 + 0.30 * Math.sin(Date.now() * 0.008);
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ff5522';
+    ctx.fillRect(wx - P, wy,       11*P, 14*P);
+    ctx.globalAlpha = 1;
+  }
+
+  // Blue goblin: pulsing glow outline
+  if (isBlue && !flash) {
+    const pulse = 0.45 + 0.35 * Math.sin(Date.now() * 0.006);
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#aaccff';
+    ctx.fillRect(wx - P, wy,       11*P, 14*P);
+    ctx.globalAlpha = 1;
+  }
+
+  // Ears (pointy, drawn before body)
+  ctx.fillStyle = Gd;
+  ctx.fillRect(wx+0*P, wy+0*P, P, 2*P);   // left ear spike
+  ctx.fillRect(wx+8*P, wy+0*P, P, 2*P);   // right ear spike
+
+  // Outline + body rows [gy, x0, x1]
+  const rows = [
+    [2, 1, 7], [3, 1, 7], [4, 1, 7], // head
+    [5, 1, 7], [6, 1, 7],
+    [7, 2, 6], [8, 2, 6], [9, 2, 6], // neck/body
+    [10,2, 6], [11,2, 6], [12,2, 6],
+    [13,2, 6],
+  ];
+  for (const [gy, x0, x1] of rows) prow(wx, wy, gy, x0-1, x1+1, O);
+  for (const [gy, x0, x1] of rows) prow(wx, wy, gy, x0, x1, G);
+  for (const [gy, x0, x1] of rows) { px(wx,wy, x0, gy, Gl); px(wx,wy, x1, gy, Gd); }
+
+  if (!flash) {
+    // Angry eyes — gula/glödande för Fire Goblin, röda för andra
+    const eyeCol = isFire ? '#ffdd22' : '#ff4444';
+    prow(wx, wy, 4, 2, 3, eyeCol);
+    prow(wx, wy, 4, 5, 6, eyeCol);
+    prow(wx, wy, 5, 2, 3, '#111111');
+    prow(wx, wy, 5, 5, 6, '#111111');
+    // Brow (angled pixels)
+    px(wx,wy, 1,3,'#222'); px(wx,wy, 2,3,'#222');
+    px(wx,wy, 6,3,'#222'); px(wx,wy, 7,3,'#222');
+    // Teeth
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(wx+3*P, wy+7*P, P, P); ctx.fillRect(wx+5*P, wy+7*P, P, P);
+  }
+
+  // Club (left side)
+  ctx.fillStyle = flash ? '#fff' : '#7a3c10';
+  ctx.fillRect(wx-2*P, wy+3*P, P, 8*P);
+  ctx.fillStyle = flash ? '#ddd' : '#994422';
+  ctx.fillRect(wx-3*P, wy+2*P, 3*P, 2*P); // club head
+}
+
+function drawGiant(hp, maxHp, flash) {
+  // Pixel art giant — origin at entity (e.x, e.y), draw upward
+  // Sprite: 18 wide × 22 tall grid units
+  const wx = -9*P, wy = -22*P;
+  const O  = flash ? '#ffffff' : '#2a1a0a';
+  const B  = flash ? '#ffffff' : '#8b6914'; // body tan
+  const Bl = flash ? '#ffffff' : '#b89040'; // light
+  const Bd = flash ? '#dddddd' : '#5a4008'; // dark
+  const Ar = flash ? '#cccccc' : '#667788'; // armour
+
+  // Legs
+  const legRows = [[14,3,6],[15,3,6],[16,3,6],[17,3,6],[18,3,6],[19,3,6],[20,3,6],[21,3,6]];
+  const legRows2= [[14,11,14],[15,11,14],[16,11,14],[17,11,14],[18,11,14],[19,11,14],[20,11,14],[21,11,14]];
+  for (const [gy,x0,x1] of [...legRows,...legRows2]) { prow(wx,wy,gy,x0-1,x1+1,O); prow(wx,wy,gy,x0,x1,Bd); }
+
+  // Body rows
+  const body = [
+    [4,3,14],[5,2,15],[6,2,15],[7,2,15],[8,2,15],
+    [9,2,15],[10,2,15],[11,2,15],[12,2,15],[13,3,14],
+  ];
+  for (const [gy,x0,x1] of body) prow(wx,wy,gy,x0-1,x1+1,O);
+  for (const [gy,x0,x1] of body) { prow(wx,wy,gy,x0,x1,B); px(wx,wy,x0,gy,Bl); px(wx,wy,x1,gy,Bd); }
+
+  // Arms
+  const armL = [[6,0,2],[7,0,2],[8,0,2],[9,0,2],[10,0,2],[11,0,1]];
+  const armR = [[6,15,17],[7,15,17],[8,15,17],[9,15,17],[10,15,17],[11,15,16]];
+  for (const [gy,x0,x1] of [...armL,...armR]) { prow(wx,wy,gy,x0-1,x1+1,O); prow(wx,wy,gy,x0,x1,B); }
+
+  // Head
+  const head = [[0,4,13],[1,3,14],[2,3,14],[3,3,14]];
+  for (const [gy,x0,x1] of head) prow(wx,wy,gy,x0-1,x1+1,O);
+  for (const [gy,x0,x1] of head) { prow(wx,wy,gy,x0,x1,B); px(wx,wy,x0,gy,Bl); }
+
+  if (!flash) {
+    // Eyes
+    prow(wx,wy, 1, 5, 6, '#cc3300'); prow(wx,wy, 1, 11, 12, '#cc3300');
+    prow(wx,wy, 2, 5, 6, '#111');    prow(wx,wy, 2, 11, 12, '#111');
+    // Nose
+    px(wx,wy, 8, 2, Bd); px(wx,wy, 9, 2, Bd);
+    // Frown
+    prow(wx,wy, 3, 6, 7, O); prow(wx,wy, 3, 10, 11, O);
+    prow(wx,wy, 4, 7, 10, O);
+    // Armour stripe
+    ctx.fillStyle = Ar;
+    ctx.fillRect(wx+3*P, wy+9*P, 12*P, P);
+    ctx.fillRect(wx+2*P, wy+10*P, 14*P, P);
+  }
+}
+
+// ── DRAW BAT (Design C – Stor/Hotfull, 17 wide × 9 tall grid units) ──────────
+// Sprite ported from bat_preview.html drawC() at P=6 → P=4.
+// e.x/e.y = body centre. wx = left edge, wy = top reference row.
+function drawBat(e, flash) {
+  const up = Math.floor(e.ft / 9) % 2 === 0; // wings-up half of flap cycle
+  const ox  = 0;               // column origin (matching preview's ox=0)
+  const oy  = up ? 1 : 2;      // row origin: 1 when up, 2 when down
+  const wx  = Math.round(e.x) - 8 * P;   // left edge of 17-unit sprite
+  const wy  = Math.round(e.y) - 5 * P;   // top reference (oy row lands near body top)
+
+  const PU = flash ? '#ffffff' : '#7722bb'; // purple body
+  const PL = flash ? '#ccaaff' : '#aa55ee'; // light purple wings
+  const PS = flash ? '#aaaaaa' : '#4a1177'; // shadow
+  const BK = flash ? '#ffffff' : '#11002a'; // outline
+  const RD = flash ? '#ffffff' : '#ff2233'; // red eyes
+  const EH = flash ? '#ffffff' : '#ffaaaa'; // eye highlight / fangs
+
+  // Convenience: draw a horizontal run at absolute row gy (from wy), cols gx0..gx1
+  function row(gy, gx0, gx1, col) { prow(wx, wy, gy, gx0, gx1, col); }
+  function dot(gx, gy, col)        { px(wx, wy, gx, gy, col); }
+
+  // ── Wings ────────────────────────────────────────────────────────────────────
+  if (!up) {
+    // Wings sweep DOWN-outward (matching preview wings-down)
+    row(oy,   ox,    ox+2,  BK); row(oy,   ox+14, ox+16, BK);
+    row(oy+1, ox,    ox+3,  BK); row(oy+1, ox+13, ox+16, BK);
+    row(oy+2, ox,    ox+3,  BK); row(oy+2, ox+13, ox+16, BK);
+    row(oy+3, ox+1,  ox+3,  BK); row(oy+3, ox+13, ox+15, BK);
+    row(oy+4, ox+2,  ox+3,  BK); row(oy+4, ox+13, ox+14, BK);
+    // Wing fill (PL inside BK outline)
+    row(oy,   ox+1,  ox+2,  PL); row(oy,   ox+14, ox+15, PL);
+    row(oy+1, ox+1,  ox+3,  PL); row(oy+1, ox+13, ox+15, PL);
+    row(oy+2, ox+1,  ox+3,  PL); row(oy+2, ox+13, ox+15, PL);
+    row(oy+3, ox+2,  ox+3,  PL); row(oy+3, ox+13, ox+14, PL);
+  } else {
+    // Wings sweep UP-inward (matching preview wings-up)
+    row(oy-2, ox+3,  ox+5,  BK); row(oy-2, ox+11, ox+13, BK);
+    row(oy-1, ox+1,  ox+5,  BK); row(oy-1, ox+11, ox+15, BK);
+    row(oy,   ox,    ox+4,  BK); row(oy,   ox+12, ox+16, BK);
+    row(oy+1, ox,    ox+3,  BK); row(oy+1, ox+13, ox+16, BK);
+    // Wing fill
+    row(oy-2, ox+4,  ox+5,  PL); row(oy-2, ox+11, ox+12, PL);
+    row(oy-1, ox+2,  ox+5,  PL); row(oy-1, ox+11, ox+14, PL);
+    row(oy,   ox+1,  ox+4,  PL); row(oy,   ox+12, ox+15, PL);
+    row(oy+1, ox+1,  ox+3,  PL); row(oy+1, ox+13, ox+15, PL);
+  }
+
+  // ── Sharp ears ───────────────────────────────────────────────────────────────
+  dot(ox+6,  oy-1, BK); dot(ox+6,  oy, BK);
+  dot(ox+10, oy-1, BK); dot(ox+10, oy, BK);
+  dot(ox+6,  oy,   PU); dot(ox+10, oy, PU);
+
+  // ── Wide body (outline then fill) ────────────────────────────────────────────
+  row(oy+1, ox+5,  ox+11, BK);
+  row(oy+2, ox+4,  ox+12, BK);
+  row(oy+3, ox+4,  ox+12, BK);
+  row(oy+4, ox+4,  ox+12, BK);
+  row(oy+5, ox+5,  ox+11, BK);
+  row(oy+6, ox+6,  ox+10, BK);
+  // Fill – upper body PU, lower body PS (shadow)
+  row(oy+1, ox+6,  ox+10, PU);
+  row(oy+2, ox+5,  ox+11, PU);
+  row(oy+3, ox+5,  ox+11, PU);
+  row(oy+4, ox+5,  ox+11, PS);
+  row(oy+5, ox+6,  ox+10, PS);
+  row(oy+6, ox+7,  ox+9,  PS);
+
+  if (!flash) {
+    // Menacing red eyes (2 px wide each)
+    row(oy+2, ox+6,  ox+7,  RD); row(oy+2, ox+9,  ox+10, RD);
+    // Eye highlight (1 px, row below – gives a glint)
+    dot(ox+7, oy+3, EH); dot(ox+9, oy+3, EH);
+    // Fangs
+    dot(ox+7, oy+5, EH); dot(ox+9, oy+5, EH);
+  }
+}
+
+// ── HEART ANIMATIONS ─────────────────────────────────────────────────────────
+function updateHeartAnims() {
+  for (let i = gs.heartAnims.length - 1; i >= 0; i--) {
+    gs.heartAnims[i].t++;
+    if (gs.heartAnims[i].t >= gs.heartAnims[i].maxT) gs.heartAnims.splice(i, 1);
+  }
+}
+
+function drawHeartAnims() {
+  for (const h of gs.heartAnims) {
+    const prog  = h.t / h.maxT;
+    const ease  = 1 - Math.pow(1 - prog, 3);   // ease-out cubic
+    const x     = h.x + (h.tx - h.x) * ease;
+    const y     = h.y + (h.ty - h.y) * ease;
+    // Pixel size shrinks from 7 → 4, snapped to integers
+    const S     = Math.round(7 - 3 * ease);
+    const alpha = prog > 0.82 ? 1 - (prog - 0.82) / 0.18 : 1;
+    // Centre the sprite on (x,y)
+    const cx    = Math.round(x - 4.5 * S);
+    const cy    = Math.round(y - 4.5 * S);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawPixelHeart(ctx, cx, cy, S, true);
+    ctx.restore();
+  }
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function drawHUD() {
+  // Hearts
+  for (let i = 0; i < blob.maxLives; i++) {
+    drawPixelHeart(ctx, 10 + i*44, 6, 4, i < blob.lives);
+  }
+
+  // Score
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'white';
+  ctx.font = '10px "Press Start 2P"';
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+  ctx.fillText('Poäng', canvas.width - 14, 22);
+  ctx.font = 'bold 18px "Press Start 2P"';
+  ctx.fillStyle = 'white';
+  ctx.shadowBlur = 6;
+  ctx.fillText(gs.score, canvas.width - 14, 48);
+  ctx.shadowBlur = 0;
+
+  // Special cooldown bar — flame or ice depending on active power
+  const barFill = gs.icePower
+    ? Math.max(0, (gs.icePowerEnd - performance.now()) / 10000)
+    : 1 - blob.specialCD / blob.specialMax;
+  if (gs.icePower) {
+    drawIceBar(10, canvas.height - 30, barFill);
+  } else {
+    drawFlameBar(10, canvas.height - 30, barFill);
+  }
+}
+
+// ── FLAME BAR (special cooldown, Style C) ────────────────────────────────────
+function drawFlameBar(x, y, fill) {
+  const NBLOCKS = 10, BW = 2*P, BH = 5*P; // each block 8×20 px
+  const filled  = Math.round(fill * NBLOCKS);
+
+  function blockCol(i) {
+    if (i < 3) return '#cc2200';
+    if (i < 6) return '#ff6600';
+    if (i < 8) return '#ff9900';
+    return '#ffdd00';
+  }
+
+  // Border
+  ctx.fillStyle = '#111122';
+  ctx.fillRect(x-2, y-2, NBLOCKS*BW+4, BH+4);
+
+  // Blocks
+  for (let i = 0; i < NBLOCKS; i++) {
+    const bx = x + i*BW;
+    ctx.fillStyle = i < filled ? blockCol(i) : '#1a1a2e';
+    ctx.fillRect(bx, y, BW, BH);
+    // 1-pixel shine on top of lit blocks
+    if (i < filled) {
+      ctx.fillStyle = 'rgba(255,220,100,0.38)';
+      ctx.fillRect(bx, y, BW, P);
+    }
+    // 1-pixel separator between blocks
+    ctx.fillStyle = '#111122';
+    if (i < NBLOCKS-1) ctx.fillRect(bx+BW-1, y, 1, BH);
+  }
+
+  // Pixel flame above bar when ready — animates with gs.frame
+  if (fill >= 1) {
+    const frame = gs.frame;
+    const flicker = Math.floor(frame / 4) % 2; // alternates 0/1
+    const fx = x + 4*BW;   // centered over bar
+    const fy = y - 6*P;
+    // Static base of flame
+    const base = [
+      [4,0,'#cc2200'],[4,1,'#cc2200'],[4,2,'#cc2200'],[4,3,'#cc2200'],[4,4,'#cc2200'],[4,5,'#cc2200'],
+      [3,0,'#ff4400'],[3,1,'#ff6600'],[3,2,'#ff4400'],[3,3,'#ff4400'],[3,4,'#ff4400'],[3,5,'#ff4400'],
+      [2,1,'#ff6600'],[2,2,'#ffaa00'],[2,3,'#ff6600'],[2,4,'#ff6600'],
+    ];
+    // Flickering tip (two alternating frames)
+    const tip0 = [[1,2,'#ffaa00'],[1,3,'#ffaa00'],[0,2,'#ffdd44'],[0,3,'#ffdd44']];
+    const tip1 = [[1,1,'#ffaa00'],[1,2,'#ffaa00'],[1,3,'#ff8800'],[0,2,'#ffdd44']];
+    const tip   = flicker === 0 ? tip0 : tip1;
+
+    for (const [gy, gx, col] of [...base, ...tip]) {
+      ctx.fillStyle = col;
+      ctx.fillRect(fx + gx*P, fy + gy*P, P, P);
+    }
+  }
+}
+
+// Pixel art heart style B — (cx,cy) is top-left corner, S is pixel size
+const HEART_OUTLINE = [
+  [0,2],[0,3],[0,5],[0,6],
+  [1,1],[1,4],[1,7],
+  [2,0],[2,8],
+  [3,0],[3,8],
+  [4,0],[4,8],
+  [5,1],[5,7],
+  [6,2],[6,6],
+  [7,3],[7,5],
+  [8,4],
+];
+const HEART_FILL = [
+  [1,2],[1,3],[1,5],[1,6],
+  [2,1],[2,2],[2,3],[2,4],[2,5],[2,6],[2,7],
+  [3,1],[3,2],[3,3],[3,4],[3,5],[3,6],[3,7],
+  [4,1],[4,2],[4,3],[4,4],[4,5],[4,6],[4,7],
+  [5,2],[5,3],[5,4],[5,5],[5,6],
+  [6,3],[6,4],[6,5],
+  [7,4],
+];
+
+function drawPixelHeart(c, cx, cy, S, filled) {
+  const x = Math.round(cx), y = Math.round(cy);
+  c.fillStyle = '#111122';
+  for (const [r,col] of HEART_OUTLINE) c.fillRect(x+col*S, y+r*S, S, S);
+  c.fillStyle = filled ? '#ee2244' : '#334455';
+  for (const [r,col] of HEART_FILL)    c.fillRect(x+col*S, y+r*S, S, S);
+  if (filled) {
+    // Top-left shine
+    c.fillStyle = '#ff99bb';
+    c.fillRect(x+2*S, y+1*S, S, S);
+    c.fillRect(x+3*S, y+1*S, S, S);
+    c.fillRect(x+2*S, y+2*S, S, S);
+  }
+}
+
+// ── SCREEN BACKGROUNDS ────────────────────────────────────────────────────────
+function drawMenuBG() {
+  ctx.fillStyle = '#aaddff'; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.55);
+  ctx.fillStyle = '#cceeff'; ctx.fillRect(0, canvas.height * 0.55, canvas.width, canvas.height * 0.25);
+  ctx.fillStyle = '#bbffee'; ctx.fillRect(0, canvas.height * 0.8,  canvas.width, canvas.height * 0.2);
+  // Ground strip
+  ctx.fillStyle = '#99dd66'; ctx.fillRect(0, canvas.height - 52, canvas.width, 52);
+  ctx.fillStyle = '#77bb44'; ctx.fillRect(0, canvas.height - 52, canvas.width, 8);
+  // Dim overlay
+  ctx.fillStyle = 'rgba(10,8,28,0.80)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────────
+function drawNameEntry() {
+  drawMenuBG();
+
   ctx.textAlign = 'center';
 
-  // Left side label
-  ctx.fillStyle = 'rgba(200,200,200,0.55)';
-  ctx.fillText('SÄSONG 1', 160, 210);
-
-  // Right side label (pulsing gold)
-  const goldPulse = 0.75 + 0.25 * Math.sin(t * 0.07);
-  ctx.fillStyle = `rgba(255,215,0,${goldPulse})`;
-  ctx.fillText('SÄSONG 2', 530, 210);
-
-  // "NY!" badge floating above snail
-  const badgePulse = 0.7 + 0.3 * Math.sin(t * 0.12);
-  const badgeY = 38 + Math.sin(t * 0.08) * 3;
-  ctx.font = '9px "Press Start 2P"';
-  ctx.fillStyle = `rgba(255,80,80,${badgePulse})`;
-  ctx.shadowColor = '#ff4444';
-  ctx.shadowBlur = 8 + 8 * badgePulse;
-  ctx.fillText('★ NY! ★', 460, badgeY);
+  // Title
+  ctx.font = '28px "Press Start 2P"';
+  ctx.fillStyle = '#cc77ff';
+  ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 22;
+  ctx.fillText('BLOB KNIGHT', canvas.width / 2, 90);
   ctx.shadowBlur = 0;
+
+  // Instruction
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillText('ANGE DITT NAMN', canvas.width / 2, 148);
+
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillStyle = 'rgba(170,68,255,0.6)';
+  ctx.fillText('max 10 tecken', canvas.width / 2, 168);
+
+  // Continue button – placed low so it never overlaps the HTML input
+  const bx = canvas.width / 2 - 110, by = 330, bw = 220, bh = 44;
+  const canContinue = playerName.trim().length > 0;
+  ctx.fillStyle = canContinue ? '#4ecb71' : '#336644';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.font = '11px "Press Start 2P"';
+  ctx.fillStyle = canContinue ? '#0a200f' : '#224433';
+  ctx.fillText('FORTSÄTT', canvas.width / 2, by + 29);
 
   ctx.textAlign = 'left';
 }
 
-// ── ANIMATION LOOP ───────────────────────────────────────────────────────────
-function animate() {
-  // Clear (transparent bg shows page through)
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+// ── MAIN MENU ─────────────────────────────────────────────────────────────────
+function drawMainMenu() {
+  drawMenuBG();
+  ctx.textAlign = 'center';
 
-  // Ground bar
-  ctx.fillStyle = '#3a5a2a';
-  ctx.fillRect(0, 188, canvas.width, 4);
-  ctx.fillStyle = '#557733';
-  ctx.fillRect(0, 188, canvas.width, 2);
+  // Title
+  ctx.font = '28px "Press Start 2P"';
+  ctx.fillStyle = '#cc77ff';
+  ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 22;
+  ctx.fillText('BLOB KNIGHT', canvas.width / 2, 55);
+  ctx.shadowBlur = 0;
 
-  // Vertical divider
-  ctx.fillStyle = 'rgba(170, 68, 255, 0.35)';
-  ctx.fillRect(355, 40, 2, 150);
-  ctx.fillStyle = 'rgba(255, 215, 0, 0.7)';
-  ctx.fillRect(354, 108, 4, 8);
+  // Player greeting
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText('Hej, ' + playerName + '!', canvas.width / 2, 76);
 
-  // Existing enemies (left of divider)
-  drawGoblin(80,  180);
-  drawGiant(180, 180);
-  drawBat(280,   118);
+  // Scoreboard header
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillStyle = '#FFD700';
+  ctx.fillText('── SÄSONG ' + CURRENT_SEASON + ' TOPPLISTA ──', canvas.width / 2, 100);
 
-  // New enemies (right of divider)
-  drawSnail(460, 180);
-  drawMystery(620, 180);
+  // Score rows (top 5)
+  const top5 = scoreCache.slice(0, 5);
+  if (scoresLoading) {
+    ctx.font = '7px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Laddar...', canvas.width / 2, 140);
+  } else if (top5.length === 0) {
+    ctx.font = '7px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Inga resultat ännu – bli först!', canvas.width / 2, 140);
+  } else {
+    const medals = ['#FFD700', '#C0C0C0', '#CD7F32', 'white', 'white'];
+    for (let i = 0; i < top5.length; i++) {
+      const e = top5[i];
+      const y = 120 + i * 20;
+      ctx.font = '8px "Press Start 2P"';
+      ctx.fillStyle = medals[i];
+      ctx.textAlign = 'left';
+      ctx.fillText('#' + (i + 1) + '  ' + (e.name || '?'), 60, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(fmtScore(e.score), canvas.width - 60, y);
+    }
+  }
 
-  drawLabels();
+  ctx.textAlign = 'center';
 
-  t++;
-  requestAnimationFrame(animate);
+  // NY SPELARE (small link, only when hasPlayed)
+  if (hasPlayed) {
+    ctx.font = '7px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(180,100,255,0.75)';
+    ctx.fillText('↩ NY SPELARE', canvas.width / 2, 221);
+  }
+
+  // SPELA button
+  const sx = canvas.width / 2 - 120, sy = 238, sw = 240, sh = 44;
+  ctx.fillStyle = '#4ecb71';
+  ctx.fillRect(sx, sy, sw, sh);
+  ctx.font = '16px "Press Start 2P"';
+  ctx.fillStyle = '#0a200f';
+  ctx.fillText('SPELA', canvas.width / 2, sy + 29);
+
+  // LEADERBOARD + CREDITS buttons side by side
+  const ly = 290, lh = 36;
+  // Leaderboard (left)
+  const lbx = canvas.width / 2 - 158;
+  ctx.fillStyle = '#1a2a3d';
+  ctx.fillRect(lbx, ly, 150, lh);
+  ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
+  ctx.strokeRect(lbx, ly, 150, lh);
+  ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88ccff';
+  ctx.fillText('LEADERBOARD', lbx + 75, ly + 23);
+
+  // Credits (right)
+  const crx = canvas.width / 2 + 8;
+  ctx.fillStyle = '#2a1a3d';
+  ctx.fillRect(crx, ly, 150, lh);
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1;
+  ctx.strokeRect(crx, ly, 150, lh);
+  ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#cc88ff';
+  ctx.fillText('CREDITS', crx + 75, ly + 23);
+
+  // BOSS-TEST buttons (endast synliga i dev-läge)
+  if (isDev) {
+    const tbw = 178, tbh = 28;
+    const gap = 12;
+    // SNIGEL (vänster)
+    const tbx1 = canvas.width / 2 - tbw - gap/2;
+    const tby  = 340;
+    ctx.fillStyle = '#3d2a1a';
+    ctx.fillRect(tbx1, tby, tbw, tbh);
+    ctx.strokeStyle = '#cc9944'; ctx.lineWidth = 1;
+    ctx.strokeRect(tbx1, tby, tbw, tbh);
+    ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#ffcc66';
+    ctx.fillText('🐌 TESTA SNIGEL', tbx1 + tbw/2, tby + 18);
+    // SCORPION (höger)
+    const tbx2 = canvas.width / 2 + gap/2;
+    ctx.fillStyle = '#3d1a0a';
+    ctx.fillRect(tbx2, tby, tbw, tbh);
+    ctx.strokeStyle = '#dd5522'; ctx.lineWidth = 1;
+    ctx.strokeRect(tbx2, tby, tbw, tbh);
+    ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#ff9966';
+    ctx.fillText('🦂 TESTA SCORPION', tbx2 + tbw/2, tby + 18);
+
+    // Liten DEV-indikator i övre högra hörnet
+    ctx.font = '6px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,100,100,0.55)';
+    ctx.textAlign = 'right';
+    ctx.fillText('· DEV ·', canvas.width - 10, 12);
+  }
+
+  ctx.textAlign = 'left';
 }
-animate();
-</script>
 
+// ── LEADERBOARD ───────────────────────────────────────────────────────────────
+function drawLeaderboard() {
+  if (!allSeasonsLoading && Object.keys(allSeasonsCache).length === 0) loadAllSeasonsScores();
+
+  _lbToggleBtn = null; // reset hit-box each frame
+
+  drawMenuBG();
+  ctx.textAlign = 'center';
+
+  // Header
+  ctx.font = '14px "Press Start 2P"';
+  ctx.fillStyle = '#FFD700';
+  ctx.shadowColor = '#aa8800'; ctx.shadowBlur = 12;
+  ctx.fillText('LEADERBOARD', canvas.width / 2, 38);
+  ctx.shadowBlur = 0;
+
+  const lx = canvas.width / 2 - 270, rx = canvas.width / 2 + 270;
+  const medals = ['#FFD700', '#C0C0C0', '#CD7F32'];
+  const ROW_H = 18;
+
+  if (allSeasonsLoading) {
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Laddar...', canvas.width / 2, 120);
+
+  } else if (leaderboardPage === 2) {
+    // ── PAGE 2: Current season places 11-20 ──────────────────────────────────
+    const rows = (allSeasonsCache[CURRENT_SEASON] || []).slice(10, 20);
+
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = '#FFD700';
+    ctx.fillText('── SÄSONG ' + CURRENT_SEASON + ' – PLATS 11-20 ──', canvas.width / 2, 58);
+
+    let curY = 78;
+    if (rows.length === 0) {
+      ctx.font = '7px "Press Start 2P"';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillText('Inga resultat', canvas.width / 2, curY);
+    } else {
+      for (let i = 0; i < rows.length; i++) {
+        const e = rows[i];
+        ctx.font = '7px "Press Start 2P"';
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.textAlign = 'left';
+        ctx.fillText('#' + (i + 11) + '  ' + (e.name || '?'), lx, curY);
+        ctx.textAlign = 'right';
+        ctx.fillText(fmtScore(e.score), rx, curY);
+        ctx.textAlign = 'center';
+        curY += ROW_H;
+      }
+    }
+
+    // Toggle button: back to 1-10
+    const tw = 170, th = 26;
+    const tx = canvas.width / 2 - tw / 2, ty = Math.min(curY + 8, canvas.height - 100);
+    _lbToggleBtn = { x: tx, y: ty, w: tw, h: th };
+    ctx.fillStyle = '#1a0a2e';
+    ctx.fillRect(tx, ty, tw, th);
+    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 1;
+    ctx.strokeRect(tx, ty, tw, th);
+    ctx.font = '7px "Press Start 2P"';
+    ctx.fillStyle = '#FFD700';
+    ctx.fillText('▲ PLATS 1-10', canvas.width / 2, ty + 17);
+
+  } else {
+    // ── PAGE 1: All seasons, current season top 10 ───────────────────────────
+    let curY = 55;
+    for (let s = 1; s <= CURRENT_SEASON; s++) {
+      const isCurrent = s === CURRENT_SEASON;
+      const rows = (allSeasonsCache[s] || []);
+      const limit = isCurrent ? 10 : 3;
+
+      ctx.font = '8px "Press Start 2P"';
+      ctx.fillStyle = isCurrent ? '#FFD700' : 'rgba(200,200,200,0.7)';
+      ctx.fillText(
+        isCurrent ? '── SÄSONG ' + s + ' (AKTUELL) ──' : '── SÄSONG ' + s + ' ──',
+        canvas.width / 2, curY
+      );
+      curY += 16;
+
+      if (rows.length === 0) {
+        ctx.font = '7px "Press Start 2P"';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillText('Inga resultat', canvas.width / 2, curY);
+        curY += ROW_H;
+      } else {
+        for (let i = 0; i < Math.min(rows.length, limit); i++) {
+          const e = rows[i];
+          ctx.font = '7px "Press Start 2P"';
+          ctx.fillStyle = i < 3 ? medals[i] : 'rgba(255,255,255,0.75)';
+          ctx.textAlign = 'left';
+          ctx.fillText('#' + (i + 1) + '  ' + (e.name || '?'), lx, curY);
+          ctx.textAlign = 'right';
+          ctx.fillText(fmtScore(e.score), rx, curY);
+          ctx.textAlign = 'center';
+          curY += ROW_H;
+        }
+      }
+      if (s < CURRENT_SEASON) curY += 4;
+    }
+
+    // Toggle button: show 11-20 (only if >10 entries exist)
+    const currentRows = (allSeasonsCache[CURRENT_SEASON] || []);
+    if (currentRows.length > 10) {
+      const tw = 170, th = 26;
+      const tx = canvas.width / 2 - tw / 2, ty = Math.min(curY + 6, canvas.height - 100);
+      _lbToggleBtn = { x: tx, y: ty, w: tw, h: th };
+      ctx.fillStyle = '#1a0a2e';
+      ctx.fillRect(tx, ty, tw, th);
+      ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 1;
+      ctx.strokeRect(tx, ty, tw, th);
+      ctx.font = '7px "Press Start 2P"';
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('▼ PLATS 11-20', canvas.width / 2, ty + 17);
+    }
+  }
+
+  ctx.textAlign = 'center';
+
+  // Back button
+  const bx = canvas.width / 2 - 110, by = canvas.height - 50, bw = 220, bh = 38;
+  ctx.fillStyle = '#223';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.font = '10px "Press Start 2P"';
+  ctx.fillStyle = '#cc88ff';
+  ctx.fillText('← TILLBAKA', canvas.width / 2, by + 25);
+
+  ctx.textAlign = 'left';
+}
+
+// ── CREDITS ───────────────────────────────────────────────────────────────────
+function drawCredits() {
+  drawMenuBG();
+  ctx.textAlign = 'center';
+
+  // Header
+  ctx.font = '18px "Press Start 2P"';
+  ctx.fillStyle = '#cc77ff';
+  ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 18;
+  ctx.fillText('CREDITS', canvas.width / 2, 80);
+  ctx.shadowBlur = 0;
+
+  // Divider
+  ctx.font = '7px "Press Start 2P"';
+  ctx.fillStyle = 'rgba(170,68,255,0.5)';
+  ctx.fillText('────────────────────────────', canvas.width / 2, 108);
+
+  const roles = [
+    ['Game Design', 'Anton Magnusson'],
+    ['Layout',      'Anton Magnusson'],
+    ['Programming', 'Team Magnusson'],
+  ];
+
+  roles.forEach(([role, name], i) => {
+    const baseY = 148 + i * 72;
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = 'rgba(200,150,255,0.75)';
+    ctx.fillText(role, canvas.width / 2, baseY);
+    ctx.font = '10px "Press Start 2P"';
+    ctx.fillStyle = 'white';
+    ctx.fillText(name, canvas.width / 2, baseY + 22);
+  });
+
+  // Back button
+  const bx = canvas.width / 2 - 110, by = canvas.height - 50, bw = 220, bh = 38;
+  ctx.fillStyle = '#223';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.font = '10px "Press Start 2P"';
+  ctx.fillStyle = '#cc88ff';
+  ctx.fillText('← TILLBAKA', canvas.width / 2, by + 25);
+
+  ctx.textAlign = 'left';
+}
+
+// ── GAME OVER ─────────────────────────────────────────────────────────────────
+function drawGameOver() {
+  // Full-screen dark overlay over frozen game scene
+  ctx.fillStyle = 'rgba(0,0,0,0.84)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Firework particles (drawn between overlay and text)
+  for (const p of gs.goParticles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.col;
+    ctx.fillRect(Math.round(p.x), Math.round(p.y), p.sz, p.sz);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.textAlign = 'center';
+
+  // Title
+  ctx.font = '26px "Press Start 2P"';
+  ctx.fillStyle = '#ff4455';
+  ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 18;
+  ctx.fillText('GAME OVER', canvas.width / 2, 48);
+  ctx.shadowBlur = 0;
+
+  // Score
+  ctx.font = '11px "Press Start 2P"'; ctx.fillStyle = 'white';
+  ctx.fillText('Poäng: ' + fmtScore(gs.score), canvas.width / 2, 76);
+
+  // Rekord
+  ctx.font = '9px "Press Start 2P"'; ctx.fillStyle = '#FFD700';
+  ctx.fillText('Rekord: ' + fmtScore(highScore), canvas.width / 2, 98);
+
+  // New record
+  if (gs.isNewTop1) {
+    const pulse = 1 + 0.08 * Math.sin(performance.now() * 0.005);
+    ctx.save();
+    ctx.translate(canvas.width / 2, 118);
+    ctx.scale(pulse, pulse);
+    ctx.font = '10px "Press Start 2P"'; ctx.fillStyle = '#ff44ff';
+    ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 14;
+    ctx.fillText('★ NYTT REKORD! ★', 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  } else if (gs.isTopScore) {
+    ctx.font = '9px "Press Start 2P"'; ctx.fillStyle = '#44ffdd';
+    ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 8;
+    ctx.fillText('NY TOPPPLACERING!', canvas.width / 2, 118);
+    ctx.shadowBlur = 0;
+  }
+
+  // Scoreboard header
+  ctx.font = '8px "Press Start 2P"'; ctx.fillStyle = '#FFD700';
+  ctx.fillText('── BÄSTA RESULTAT ──', canvas.width / 2, 140);
+
+  // Top 5
+  const top5 = scoreCache.slice(0, 5);
+  if (scoresLoading) {
+    ctx.font = '8px "Press Start 2P"'; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Laddar...', canvas.width / 2, 175);
+  } else if (top5.length === 0) {
+    ctx.font = '8px "Press Start 2P"'; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('Inga resultat ännu', canvas.width / 2, 175);
+  } else {
+    const medals = ['#FFD700', '#C0C0C0', '#CD7F32', 'white', 'white'];
+    for (let i = 0; i < top5.length; i++) {
+      const e = top5[i];
+      const y = 162 + i * 24;
+      ctx.font = '9px "Press Start 2P"';
+      ctx.fillStyle = medals[i];
+      ctx.textAlign = 'left';
+      ctx.fillText('#' + (i + 1) + '  ' + (e.name || '?'), 60, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(fmtScore(e.score), canvas.width - 60, y);
+    }
+  }
+
+  ctx.textAlign = 'center';
+
+  // "Visa alla" button
+  const vx = canvas.width / 2 - 80, vy = 284, vw = 160, vh = 30;
+  ctx.fillStyle = '#22334d';
+  ctx.fillRect(vx, vy, vw, vh);
+  ctx.strokeStyle = '#4488bb'; ctx.lineWidth = 1;
+  ctx.strokeRect(vx, vy, vw, vh);
+  ctx.font = '7px "Press Start 2P"'; ctx.fillStyle = '#88bbdd';
+  ctx.fillText('TOPP 10 →', canvas.width / 2, vy + 20);
+
+  // "Spela igen" button
+  const bx = canvas.width / 2 - 120, by = 328, bw = 240, bh = 46;
+  ctx.fillStyle = '#4ecb71';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.font = '13px "Press Start 2P"'; ctx.fillStyle = '#0a200f';
+  ctx.fillText(hasPlayed ? 'FORTSÄTT' : 'SPELA IGEN', canvas.width / 2, by + 30);
+
+  ctx.textAlign = 'left';
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function rectsOverlap(x1,y1,w1,h1, x2,y2,w2,h2) {
+  return x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2;
+}
+
+// ── GAME OVER FIREWORKS (Style A – Starburst) ────────────────────────────────
+const FW_COLORS = ['#ff4444','#ff8800','#ffdd00','#44ff88','#44ccff','#cc44ff','#ffffff','#ffaaaa'];
+
+function goFwBurst(x, y, n, spd) {
+  for (let i = 0; i < n; i++) {
+    const ang = (Math.PI * 2 * i / n) + Math.random() * 0.5;
+    const s   = spd * (0.5 + Math.random());
+    gs.goParticles.push({
+      x, y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s,
+      life: 1, decay: 0.011 + Math.random() * 0.009,
+      col: FW_COLORS[i % FW_COLORS.length], sz: Math.random() > 0.6 ? 4 : 3,
+    });
+  }
+}
+
+function triggerBigFireworks() {
+  const W = canvas.width, H = canvas.height;
+  const spots = [
+    [W*.18,H*.18],[W*.5,H*.12],[W*.82,H*.18],
+    [W*.12,H*.45],[W*.88,H*.42],[W*.35,H*.32],[W*.66,H*.28],
+  ];
+  spots.forEach(([x, y], i) => setTimeout(() => goFwBurst(x, y, 26, 4.5), i * 130));
+  snd.bigFirework();
+}
+
+function triggerSmallFireworks() {
+  const W = canvas.width, H = canvas.height;
+  setTimeout(() => goFwBurst(W * .38, H * .28, 14, 2.5), 0);
+  setTimeout(() => goFwBurst(W * .64, H * .24, 14, 2.5), 200);
+  snd.smallFirework();
+}
+
+function updateGameOverFX() {
+  if (gs.state !== 'gameover') return;
+  if (!gs.goFwInit) {
+    gs.goFwInit = true;
+    if (gs.isNewTop1)       triggerBigFireworks();
+    else if (gs.isTopScore) triggerSmallFireworks();
+  }
+  for (const p of gs.goParticles) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.07; p.vx *= 0.98; p.life -= p.decay;
+  }
+  gs.goParticles = gs.goParticles.filter(p => p.life > 0);
+}
+
+function endGame() {
+  // Boss-test session: never count as a real game-over (no score save, no GG screen)
+  if (gs.bossTest) {
+    bgm.stop();
+    gs.state    = 'mainmenu';
+    gs.bossTest = null;
+    return;
+  }
+  gs.state = 'gameover';
+  hasPlayed = true;
+  bgm.stop();
+  if (gs.score > highScore) {
+    highScore = gs.score;
+    localStorage.setItem('blobKnightHS', highScore);
+  }
+  // Determine placement vs current cached scoreboard
+  gs.isNewTop1  = gs.score > 0 && (scoreCache.length === 0 || gs.score > scoreCache[0].score);
+  gs.isTopScore = gs.score > 0 && (gs.isNewTop1 || scoreCache.length < 10 ||
+                  gs.score > scoreCache[scoreCache.length - 1].score);
+  gs.goFwInit   = false;
+  saveScore(playerName, gs.score);
+  loadScores();
+}
+
+function newPlayer() {
+  playerName = '';
+  nameInputEl.value = '';
+  gs.state = 'nameentry';
+  nameInputEl.style.display = 'block';
+  setTimeout(() => nameInputEl.focus(), 50);
+}
+
+function restartGame() {
+  loadScores();
+  gs.state = 'mainmenu';
+}
+
+function startGame() {
+  resetState();
+  resetBlob();
+  spaceJustPressed = false;
+  shiftJustPressed = false;
+  ctrlJustPressed  = false;
+}
+
+// Start a boss-test session – jumps straight into a fight with the named boss
+function startBossTest(which) {
+  resetState();
+  resetBlob();
+  spaceJustPressed = false;
+  shiftJustPressed = false;
+  ctrlJustPressed  = false;
+  gs.bossTest = which;
+  gs.state    = 'playing';
+  // Sätt rätt fas så bakgrunden matchar boss-temat även i testläge.
+  // Snigeln är fas 1→2-bossen (grön äng), scorpionen är fas 2→3-bossen (öken).
+  if (which === 'snail') {
+    gs.phase = 1;
+    spawnSnailBoss();
+  } else if (which === 'scorpion') {
+    gs.phase = 2;
+    spawnScorpionBoss();
+  }
+}
+
+// ── BOSS: SNAIL ─────────────────────────────────────────────────────────────
+function spawnSnailBoss() {
+  const targetX = canvas.width - 130;
+  gs.boss = {
+    type: 'snail',
+    // Startar utanför skärmen till höger och glider in
+    x: canvas.width + 90,
+    targetX,
+    entering: true,
+    enterSpeed: 2.2,
+    y: 310,                  // feet on the ground
+    hp: 10, maxHp: 10,
+    ft: 0, bob: 0,
+    flashT: 0,
+    // Hitbox extends from the ground (y=310) up past the player's jump peak (~y=200)
+    // so a fireball thrown mid-jump can still land on the snail.
+    hbTop: 175, hbBottom: 310, hbLeft: 0, hbRight: 0,
+    // Attack FSM
+    attackTimer: 100,        // ~1.7 s before first attack (efter entrén)
+    attackCD: 175,           // ~2.9 s between attacks
+    attackState: 'idle',     // 'idle' | 'windup' | 'fire' | 'recover'
+    attackStateT: 0,
+    attackType: null,        // 'mini' | 'wave'
+    dying: false, deathT: 0,
+  };
+  // Inga roar/sound vid spawn — väntar tills bossen är i position
+}
+
+function bossHitbox(b) {
+  // The hitbox follows the boss horizontally; vertically it covers the full
+  // sprite + up to the player's jump peak so fireballs always have a target.
+  if (b.type === 'scorpion') {
+    return { x: b.x - 80, y: b.hbTop, w: 160, h: b.hbBottom - b.hbTop };
+  }
+  return { x: b.x - 70, y: b.hbTop, w: 130, h: b.hbBottom - b.hbTop };
+}
+
+// ── BOSS: SCORPION ──────────────────────────────────────────────────────────
+function spawnScorpionBoss() {
+  const targetX = canvas.width - 120;
+  gs.boss = {
+    type: 'scorpion',
+    x: canvas.width + 110,    // entré från höger
+    targetX,
+    entering: true,
+    enterSpeed: 2.0,
+    y: 310,                   // feet
+    hp: 12, maxHp: 12,
+    ft: 0, bob: 0,
+    flashT: 0,
+    hbTop: 175, hbBottom: 310, hbLeft: 0, hbRight: 0,
+    // Attack FSM
+    attackTimer: 110,
+    attackCD: 160,            // ~2.7s mellan attacker
+    attackState: 'idle',      // 'idle' | 'windup' | 'fire' | 'recover'
+    attackStateT: 0,
+    attackType: null,         // 'tail' | 'pincer' | 'venom'
+    pose: 'idle',             // 'idle' | 'tail-up' | 'pincer-spread' | 'rear'
+    dying: false, deathT: 0,
+  };
+}
+
+// Skorpionens färgpalett (Variant A från preview - Ökenskorpion)
+const SCORPION_A = {
+  bodyD:'#5a3008', body:'#cc8033', bodyHL:'#ee9944',
+  plate:'#7a4818', leg:'#7a4818',
+  pincer:'#a25522', pincerD:'#5a2a08',
+  tail:'#bb7733',  tailD:'#7a4818',
+  stingerTip:'#cc2200', stingerD:'#660000',
+  eye:'#ffcc22',
+};
+const SCORPION_FLASH = {
+  bodyD:'#dddddd', body:'#ffffff', bodyHL:'#ffffff',
+  plate:'#cccccc', leg:'#cccccc',
+  pincer:'#ffffff', pincerD:'#dddddd',
+  tail:'#ffffff',  tailD:'#dddddd',
+  stingerTip:'#ffffff', stingerD:'#dddddd',
+  eye:'#ffffff',
+};
+
+function damageBoss(dmg) {
+  const b = gs.boss;
+  if (!b || b.dying || b.entering) return;  // osårbar under entré
+  b.hp -= dmg;
+  b.flashT = 8;
+  spawnParticles(b.x - 20, b.y - 50, '#ffff44', 10);
+  if (b.hp <= 0) {
+    b.dying = true;
+    b.deathT = 0;
+    gs.lastBossKilled = b.type;
+    snd.bossDie();
+    // +100 poäng-bonus när bossen besegras (gäller bara riktigt spel, ej testläge)
+    if (!gs.bossTest) {
+      gs.distance += 1200;  // 1200 / 12 = 100 score
+      spawnParticles(b.x, b.y - 50, '#FFD700', 22);
+    }
+  } else {
+    snd.bossHit();
+  }
+}
+
+// ── SCORPION ATTACK SPAWNERS ────────────────────────────────────────────────
+// Stationär slag-impact (används när skorpionen slår ner svansen efter dash)
+function spawnTailImpact(x, y) {
+  gs.shockwaves.push({
+    x, y,
+    w: 120, h: 24,
+    speed: 0,           // stationär – ingen rörelse, bara impact
+    ft: 0,
+    life: 30,           // total visuell livslängd
+    dmgLife: 10,        // damage-zonen aktiv första 10 frames (var 14)
+  });
+  // Stor dust-burst vid slaget
+  for (let i = 0; i < 24; i++) {
+    spawnParticles(x + (Math.random()-0.5)*40, y - 8, i%2 ? '#ddaa66' : '#aa7733', 1);
+  }
+  snd.bossHit();
+  snd.bossRoar();  // extra ljud-impakt
+}
+
+function spawnPincerBeam() {
+  if (!gs.boss) return;
+  // Strålen avfyras från stingerspetsen (i tail-up-pose) som naturligt sitter
+  // vid hopphöjd (~y=215). Spelarens jump-peak hitbox 200–224 fångas, men
+  // grounded-spelaren (y=310, hitbox 272–324) är säker.
+  const stingerX = gs.boss.x - 50;
+  gs.energyBeams.push({
+    xRight: stingerX,
+    xLeft:  -20,
+    y: 215,
+    h: 30,
+    life: 32,
+    ft: 0,
+    srcX: stingerX, srcY: 215,   // för att kunna rita flash vid avfyrning
+  });
+  snd.fireballReflect();
+}
+
+function spawnVenomArc() {
+  if (!gs.boss) return;
+  // Båg-projektil från stinger → landar ~160 px framför spelaren och kryper sen åt vänster.
+  // Smalare pöl + lägre hitbox så den faktiskt går att hoppa över.
+  gs.venomPools.push({
+    state: 'arc',
+    sx: gs.boss.x - 30, sy: gs.boss.y - 70,   // stinger-position
+    ex: 300, ey: 310,                          // landningspunkt
+    t: 0, arcDur: 36,
+    poolW: 0, poolMaxW: 34, poolY: 310,        // smalare spread (var 56)
+    poolX: 300,
+    poolSpeed: 2.2,
+    poolLife: 0,
+  });
+  snd.slimeThrow();
+}
+
+function spawnMiniSnail() {
+  if (!gs.boss) return;
+  gs.enemies.push({
+    type: 'mini-snail',
+    x: gs.boss.x - 60, y: 308,
+    hw: 14, hh: 14,
+    hp: 1, maxHp: 1,
+    speed: 2.4 + Math.random() * 0.8,
+    dead: false, deathT: 0, ft: 0,
+    wobble: 0, wobDir: 1,
+  });
+  snd.miniSnailSpawn();
+}
+
+function spawnSlimeWave() {
+  if (!gs.boss) return;
+  gs.slimeWaves.push({
+    x: gs.boss.x - 50, y: 310,
+    w: 60, h: 20,       // mindre & smalare så det går att hoppa över
+    speed: 3.2,
+    ft: 0,
+  });
+  snd.slimeThrow();
+}
+
+function updateBoss() {
+  const b = gs.boss;
+  if (!b) return;
+  b.ft++;
+  if (b.flashT > 0) b.flashT--;
+  b.bob = Math.sin(b.ft * 0.04) * 3;
+
+  // ── Entrén: glider in från höger ──────────────────────────────────────────
+  if (b.entering) {
+    b.x -= b.enterSpeed;
+    if (b.x <= b.targetX) {
+      b.x = b.targetX;
+      b.entering = false;
+      snd.bossRoar();          // ryt när bossen är i position
+    }
+    return;                    // ingen attack/kollision under entrén
+  }
+
+  // Dying animation
+  if (b.dying) {
+    b.deathT++;
+    if (b.deathT % 10 === 0 && b.deathT < 80) {
+      spawnParticles(
+        b.x - 40 + Math.random()*80,
+        b.y - 30 - Math.random()*60,
+        Math.random() < 0.5 ? '#ffaa44' : '#ff5522', 14);
+    }
+    if (b.deathT >= 100) {
+      // Boss fully gone — clean up
+      gs.boss = null;
+      gs.bossDefeated = true;
+      gs.bossVictoryT = 0;
+      // Clear all minions/projectiles
+      gs.enemies = gs.enemies.filter(e => e.type !== 'mini-snail');
+      gs.slimeWaves  = [];
+      gs.shockwaves  = [];
+      gs.energyBeams = [];
+      gs.venomPools  = [];
+    }
+    return;
+  }
+
+  // Attack FSM — dispatch per boss-typ
+  if (b.type === 'scorpion') updateScorpionFSM(b);
+  else                       updateSnailFSM(b);
+
+  // Player ↔ boss body collision
+  // Snigeln har en hög upprest kropp (60 px tall hitbox), men skorpionen är
+  // låg och bred — så där matchar vi hitboxen till själva slammets höjd så
+  // kroppen inte "osynligt" sträcker sig upp i hopphöjd och dubbel-skadar.
+  if (!blob.invincible) {
+    const hb = bossHitbox(b);
+    const bodyTop = b.type === 'scorpion' ? b.y - 24 : b.y - 60;
+    if (rectsOverlap(blob.x - 22, blob.y - 28 + blob.bobOff, 44, 52,
+                     hb.x, bodyTop, hb.w, b.y - bodyTop)) {
+      blobHurt();
+    }
+  }
+}
+
+// ── Snigel-FSM (oförändrad logik) ──────────────────────────────────────────
+function updateSnailFSM(b) {
+  if (b.attackState === 'idle') {
+    b.attackTimer--;
+    if (b.attackTimer <= 0) {
+      b.attackState  = 'windup';
+      b.attackStateT = 0;
+      b.attackType   = Math.random() < 0.5 ? 'mini' : 'wave';
+    }
+  } else if (b.attackState === 'windup') {
+    b.attackStateT++;
+    if (b.attackStateT >= 36) {
+      if (b.attackType === 'mini') {
+        b.miniCount    = 1 + Math.floor(Math.random() * 3);
+        b.miniSpawned  = 0;
+        b.attackState  = 'fire';
+        b.attackStateT = 0;
+      } else {
+        spawnSlimeWave();
+        b.attackState  = 'recover';
+        b.attackStateT = 0;
+      }
+    }
+  } else if (b.attackState === 'fire') {
+    b.attackStateT++;
+    const interval = 22;
+    if (b.miniSpawned < b.miniCount &&
+        b.attackStateT >= b.miniSpawned * interval) {
+      spawnMiniSnail();
+      b.miniSpawned++;
+    }
+    if (b.miniSpawned >= b.miniCount &&
+        b.attackStateT >= (b.miniCount - 1) * interval + 18) {
+      b.attackState  = 'recover';
+      b.attackStateT = 0;
+    }
+  } else if (b.attackState === 'recover') {
+    b.attackStateT++;
+    if (b.attackStateT >= 24) {
+      b.attackState = 'idle';
+      b.attackTimer = b.attackCD;
+    }
+  }
+}
+
+// ── Skorpion-FSM ──────────────────────────────────────────────────────────
+// 40% Gaddslag (must JUMP), 30% Pincersvep (must NOT jump), 30% Giftspott (must JUMP)
+function updateScorpionFSM(b) {
+  if (b.attackState === 'idle') {
+    b.pose = 'idle';
+    b.attackTimer--;
+    if (b.attackTimer <= 0) {
+      b.attackState  = 'windup';
+      b.attackStateT = 0;
+      const r = Math.random();
+      b.attackType = r < 0.40 ? 'tail' : r < 0.70 ? 'pincer' : 'venom';
+    }
+  } else if (b.attackState === 'windup') {
+    b.attackStateT++;
+    // Pose under windup
+    if (b.attackType === 'tail')        b.pose = 'rear';
+    else if (b.attackType === 'pincer') b.pose = 'tail-up';   // svansen reser sig högt → stinger laddar
+    else                                b.pose = 'rear';
+
+    const windupDur = b.attackType === 'pincer' ? 38 : 28;
+    if (b.attackStateT >= windupDur) {
+      if (b.attackType === 'tail') {
+        // Tail-attack startar nu dash-forward-sekvensen
+        b.dashStartX  = b.x;
+        b.dashTargetX = b.x - 460;   // ~mot blob (rusar 460 px vänster)
+        b.attackState  = 'tail-dash-fwd';
+        b.attackStateT = 0;
+        b.pose = 'tail-up';
+      } else if (b.attackType === 'pincer') {
+        b.pose = 'tail-up';           // svansen kvarsteår uppe medan stingern skjuter
+        spawnPincerBeam();
+        b.attackState  = 'fire';
+        b.attackStateT = 0;
+      } else {
+        b.pose = 'rear';
+        spawnVenomArc();
+        b.attackState  = 'fire';
+        b.attackStateT = 0;
+      }
+    }
+  } else if (b.attackState === 'tail-dash-fwd') {
+    // Rusar åt vänster mot spelaren — något långsammare för bättre läsbarhet
+    b.attackStateT++;
+    const dashDur = 32;
+    const u = Math.min(1, b.attackStateT / dashDur);
+    const eased = u * u;                              // ease-in: accelererande dash
+    b.x = b.dashStartX + (b.dashTargetX - b.dashStartX) * eased;
+    b.pose = 'tail-up';
+    if (b.attackStateT >= dashDur) {
+      b.x = b.dashTargetX;
+      // Slå ner svansen vid landningspunkten
+      spawnTailImpact(b.x - 50, 310);
+      b.attackState  = 'tail-slam';
+      b.attackStateT = 0;
+    }
+  } else if (b.attackState === 'tail-slam') {
+    // Svansen slår NER mot marken framför kroppen
+    b.attackStateT++;
+    b.pose = 'tail-slam';
+    if (b.attackStateT >= 16) {
+      b.attackState  = 'tail-dash-back';
+      b.attackStateT = 0;
+    }
+  } else if (b.attackState === 'tail-dash-back') {
+    // Backar långsammare tillbaka till sitt utgångsläge
+    b.attackStateT++;
+    const dashDur = 38;
+    const u = Math.min(1, b.attackStateT / dashDur);
+    const eased = 1 - (1 - u) * (1 - u);              // ease-out: bromsar in
+    b.x = b.dashTargetX + (b.dashStartX - b.dashTargetX) * eased;
+    b.pose = 'rear';
+    if (b.attackStateT >= dashDur) {
+      b.x = b.dashStartX;
+      b.attackState  = 'recover';
+      b.attackStateT = 0;
+      b.pose = 'idle';
+    }
+  } else if (b.attackState === 'fire') {
+    b.attackStateT++;
+    // Pincer-attacken: håll svansen uppe under hela fire-fönstret medan strålen är aktiv
+    if (b.attackType === 'pincer') b.pose = 'tail-up';
+    // Kort fire-fönster där posen håller efteranimationen (pincer/venom)
+    if (b.attackStateT >= 14) {
+      b.attackState  = 'recover';
+      b.attackStateT = 0;
+      b.pose = 'idle';
+    }
+  } else if (b.attackState === 'recover') {
+    b.attackStateT++;
+    b.pose = 'idle';
+    if (b.attackStateT >= 22) {
+      b.attackState = 'idle';
+      b.attackTimer = b.attackCD;
+    }
+  }
+}
+
+// ── Skorpion-projektil-updates ────────────────────────────────────────────
+function updateShockwaves() {
+  for (let i = gs.shockwaves.length - 1; i >= 0; i--) {
+    const s = gs.shockwaves[i];
+    s.x -= s.speed;
+    s.ft++;
+    // Damage-zonen är aktiv inom dmgLife (om satt), annars hela tiden
+    const dmgActive = s.dmgLife === undefined || s.ft <= s.dmgLife;
+    if (dmgActive && !blob.invincible) {
+      const sx = s.x - s.w/2;
+      if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                       sx, s.y - s.h, s.w, s.h)) {
+        blobHurt();
+      }
+    }
+    // Ta bort när livslängd nådd eller off-screen
+    const expired = (s.life !== undefined && s.ft >= s.life) || s.x < -80;
+    if (expired) gs.shockwaves.splice(i, 1);
+  }
+}
+
+function updateEnergyBeams() {
+  for (let i = gs.energyBeams.length - 1; i >= 0; i--) {
+    const e = gs.energyBeams[i];
+    e.ft++;
+    // Beam är aktiv hela `life`-perioden, fyller hela skärmens vänster→höger sträcka
+    if (e.ft < e.life && !blob.invincible) {
+      const beamX = e.xLeft;
+      const beamW = e.xRight - e.xLeft;
+      if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                       beamX, e.y - e.h/2, beamW, e.h)) {
+        blobHurt();
+      }
+    }
+    if (e.ft >= e.life + 14) gs.energyBeams.splice(i, 1);
+  }
+}
+
+function updateVenomPools() {
+  for (let i = gs.venomPools.length - 1; i >= 0; i--) {
+    const v = gs.venomPools[i];
+    if (v.state === 'arc') {
+      v.t++;
+      const u = v.t / v.arcDur;       // 0..1
+      if (u >= 1) {
+        v.state = 'pool';
+        v.t = 0;
+        // Impact-partiklar
+        for (let k = 0; k < 12; k++) {
+          spawnParticles(v.ex, v.ey - 6, k%2 ? '#66ee44' : '#22aa22', 1);
+        }
+      }
+    } else {
+      // 'pool' state
+      v.poolLife++;
+      // Växer först, sen rör sig vänster
+      if (v.poolLife < 14) {
+        v.poolW = Math.min(v.poolMaxW, v.poolW + 4.5);
+      } else {
+        v.poolX -= v.poolSpeed;
+        // Pölens kant sakta krymper när den glider iväg
+        if (v.poolLife > 80) v.poolW = Math.max(0, v.poolW - 1.2);
+      }
+      // Kollision under pool-fasen – matchar visuella höjden (~6 px) så man
+      // inte träffar "ovanför" pölen när man landar efter ett hopp.
+      if (!blob.invincible && v.poolW > 6) {
+        const px2 = v.poolX - v.poolW/2;
+        if (rectsOverlap(blob.x-22, blob.y-28+blob.bobOff, 44, 52,
+                         px2, v.poolY - 6, v.poolW, 6)) {
+          blobHurt();
+        }
+      }
+      if (v.poolX < -40 || v.poolW <= 0) gs.venomPools.splice(i, 1);
+    }
+  }
+}
+
+function updateSlimeWaves() {
+  for (let i = gs.slimeWaves.length - 1; i >= 0; i--) {
+    const s = gs.slimeWaves[i];
+    s.x -= s.speed;
+    s.ft++;
+    // Player collision (only if the player isn't high enough off the ground)
+    if (!blob.invincible) {
+      const sx = s.x - s.w / 2;
+      if (rectsOverlap(blob.x - 22, blob.y - 28 + blob.bobOff, 44, 52,
+                       sx, s.y - s.h, s.w, s.h)) {
+        blobHurt();
+      }
+    }
+    if (s.x < -120) gs.slimeWaves.splice(i, 1);
+  }
+}
+
+// ── BOSS DRAWING ────────────────────────────────────────────────────────────
+function drawSnailBoss(b) {
+  const P = 6;
+  const flash = b.flashT > 0 && Math.floor(b.flashT / 2) % 2 === 0;
+  const cy = b.y + Math.round(b.bob);
+  // Slight forward lean during windup so the player can read the tell
+  const leanX = b.attackState === 'windup'
+    ? Math.round(-Math.sin(b.attackStateT / 36 * Math.PI) * 8)
+    : 0;
+  const cx = b.x + leanX;
+  const ox = Math.round(cx / P), oy = Math.round(cy / P);
+
+  const C = flash ? {
+    body:'#ffffff', bodyD:'#dddddd', foot:'#cccccc',
+    shell:'#ffffff', shellD:'#dddddd', shellHL:'#ffffff',
+    head:'#ffffff', headHL:'#ffffff', eye:'#ffffff',
+    stalk:'#ffffff', mouth:'#cccccc',
+  } : {
+    body:'#88aa44', bodyD:'#556633', foot:'#445522',
+    shell:'#cc9944', shellD:'#7a4a11', shellHL:'#ffe08a',
+    head:'#88aa44', headHL:'#aabb66', eye:'#ff2233',
+    stalk:'#778833', mouth:'#334422',
+  };
+
+  const r = (y, x0, x1, col) => { ctx.fillStyle = col; ctx.fillRect(x0*P, y*P, (x1-x0+1)*P, P); };
+  const p = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(x*P, y*P, P, P); };
+
+  // FOOT
+  r(oy,   ox-10,ox+8, C.foot);
+  r(oy-1, ox-11,ox+9, C.body);
+  r(oy-2, ox-11,ox+9, C.body);
+  r(oy-3, ox-10,ox+8, C.body);
+  r(oy-4, ox-9, ox+7, C.headHL);
+
+  // HEAD
+  r(oy-5, ox-13,ox-7, C.head);
+  r(oy-6, ox-14,ox-6, C.head);
+  r(oy-7, ox-14,ox-6, C.headHL);
+  p(ox-14, oy-5, C.bodyD);
+
+  // EYE STALKS
+  r(oy-8,  ox-13,ox-13, C.stalk);
+  r(oy-9,  ox-13,ox-13, C.stalk);
+  r(oy-10, ox-13,ox-13, C.stalk);
+  r(oy-8,  ox-11,ox-11, C.stalk);
+  r(oy-9,  ox-11,ox-11, C.stalk);
+
+  // EYES
+  r(oy-11, ox-14,ox-12, C.eye);
+  r(oy-10, ox-14,ox-12, C.eye);
+  p(ox-13, oy-11, '#ffaaaa');
+  r(oy-10, ox-11,ox-10, C.eye);
+  r(oy-9,  ox-11,ox-10, C.eye);
+  p(ox-11, oy-10, '#ffaaaa');
+
+  // SHELL outer
+  r(oy-12, ox-2, ox+10, C.shellD);
+  r(oy-11, ox-4, ox+11, C.shell);
+  r(oy-10, ox-5, ox+11, C.shell);
+  r(oy-9,  ox-5, ox+11, C.shell);
+  r(oy-8,  ox-5, ox+11, C.shell);
+  r(oy-7,  ox-4, ox+11, C.shellD);
+  r(oy-6,  ox-3, ox+10, C.shellD);
+  r(oy-5,  ox-1, ox+9,  C.shellD);
+  // Shell highlight + spiral
+  r(oy-12, ox+1, ox+5,  C.shellHL);
+  r(oy-11, ox+1, ox+3,  C.shellHL);
+  r(oy-9,  ox+1, ox+5,  C.shellD);
+  r(oy-8,  ox+5, ox+8,  C.shellD);
+  r(oy-7,  ox+2, ox+6,  C.shellD);
+  p(ox+4,  oy-10, C.shellD);
+
+  // Mouth
+  p(ox-11, oy-5, C.mouth);
+  p(ox-10, oy-5, C.mouth);
+  p(ox-9,  oy-5, C.mouth);
+
+  // Update hitbox L/R to follow the boss horizontally (vertical span is fixed)
+  b.hbLeft  = cx - 84;
+  b.hbRight = cx + 66;
+}
+
+function drawBoss() {
+  if (!gs.boss) return;
+  const b = gs.boss;
+  const drawFn = b.type === 'scorpion' ? drawScorpionBoss : drawSnailBoss;
+  if (b.dying) {
+    ctx.save();
+    const sh = Math.round((Math.random() - 0.5) * 6);
+    ctx.translate(sh, sh);
+    ctx.globalAlpha = Math.max(0, 1 - b.deathT / 100);
+    drawFn(b);
+    ctx.restore();
+    return;
+  }
+  drawFn(b);
+}
+
+// ── DRAW SCORPION BOSS (Variant A – Ökenskorpion) ──────────────────────────
+function drawScorpionBoss(b) {
+  const P = 8;   // större sprite för mer skräckinjagande boss
+  const flash = b.flashT > 0 && Math.floor(b.flashT / 2) % 2 === 0;
+  const c = flash ? SCORPION_FLASH : SCORPION_A;
+  const cy = b.y + Math.round(b.bob);
+  const cx = b.x;
+  const ox = Math.round(cx / P), oy = Math.round(cy / P);
+  const t  = b.ft;
+  const pose = b.pose || 'idle';
+
+  const r = (y, x0, x1, col) => { ctx.fillStyle = col; ctx.fillRect(x0*P, y*P, (x1-x0+1)*P, P); };
+  const p = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(x*P, y*P, P, P); };
+
+  // ── LEGS (4 stycken, alternerande step) ──────
+  const legStep = Math.floor(t/10) % 2;
+  ctx.fillStyle = c.leg;
+  ctx.fillRect((ox-2)*P, (oy-1)*P, P, P + (legStep?0:P));
+  ctx.fillRect((ox+0)*P, (oy-1)*P, P, P + (legStep?P:0));
+  ctx.fillRect((ox+2)*P, (oy-1)*P, P, P + (legStep?0:P));
+  ctx.fillRect((ox+4)*P, (oy-1)*P, P, P + (legStep?P:0));
+  ctx.fillStyle = c.bodyD;
+  ctx.fillRect((ox-2)*P, (oy)*P, P, P);
+  ctx.fillRect((ox+0)*P, (oy)*P, P, P);
+  ctx.fillRect((ox+2)*P, (oy)*P, P, P);
+  ctx.fillRect((ox+4)*P, (oy)*P, P, P);
+
+  // ── BODY ──────
+  r(oy-1, ox-3, ox+5, c.bodyD);
+  r(oy-2, ox-4, ox+6, c.bodyD);
+  r(oy-3, ox-4, ox+6, c.bodyD);
+  r(oy-4, ox-3, ox+5, c.bodyD);
+  r(oy-2, ox-3, ox+5, c.body);
+  r(oy-3, ox-3, ox+5, c.body);
+  r(oy-3, ox-2, ox+4, c.bodyHL);
+  r(oy-4, ox-2, ox+4, c.body);
+  p(ox-1, oy-3, c.plate); p(ox-1, oy-2, c.plate);
+  p(ox+1, oy-3, c.plate); p(ox+1, oy-2, c.plate);
+  p(ox+3, oy-3, c.plate); p(ox+3, oy-2, c.plate);
+
+  // ── EYES ──────
+  p(ox-2, oy-3, c.eye);
+  p(ox-1, oy-3, c.eye);
+
+  // ── PINCER (utsträckning under 'pincer-spread' pose) ──────
+  let pincerExt = 0;
+  if (pose === 'pincer-spread') {
+    pincerExt = Math.round(Math.sin(t*0.18) * 1.5 + 1.5);
+  }
+  const pcx = ox - 4 - pincerExt;
+  r(oy-3, pcx-3, pcx, c.pincer);
+  r(oy-2, pcx-3, pcx, c.pincer);
+  p(pcx-3, oy-4, c.pincerD);
+  p(pcx-3, oy-1, c.pincerD);
+  r(oy-4, pcx-5, pcx-3, c.pincer);
+  p(pcx-5, oy-4, c.pincerD);
+  p(pcx-5, oy-5, c.pincerD);
+  p(pcx-4, oy-5, c.pincer);
+  r(oy-1, pcx-5, pcx-3, c.pincer);
+  p(pcx-5, oy-1, c.pincerD);
+  p(pcx-5, oy,   c.pincerD);
+  p(pcx-4, oy,   c.pincer);
+
+  // ── TAIL ──────
+  let tailPath;
+  if (pose === 'tail-up') {
+    tailPath = [
+      [ox+5, oy-4], [ox+5, oy-6], [ox+4, oy-8],
+      [ox+2, oy-10], [ox+0, oy-12], [ox-2, oy-13],
+      [ox-4, oy-13], [ox-6, oy-12],
+    ];
+  } else if (pose === 'tail-slam') {
+    // Svansen dyker NER framför kroppen, stingern slår mot marken
+    tailPath = [
+      [ox+5, oy-4], [ox+5, oy-6], [ox+3, oy-6],
+      [ox+1, oy-5], [ox-1, oy-4], [ox-3, oy-2],
+      [ox-4, oy],            // stinger vid marknivå framför bossen
+    ];
+  } else if (pose === 'rear') {
+    tailPath = [
+      [ox+5, oy-4], [ox+5, oy-6], [ox+5, oy-8],
+      [ox+4, oy-10], [ox+2, oy-11], [ox+0, oy-11],
+      [ox-1, oy-10],
+    ];
+  } else {
+    tailPath = [
+      [ox+5, oy-4], [ox+5, oy-6], [ox+4, oy-8],
+      [ox+2, oy-9], [ox+0, oy-10], [ox-1, oy-9],
+      [ox-2, oy-8],
+    ];
+  }
+  for (const [tx, ty] of tailPath) {
+    r(ty,   tx-1, tx, c.tailD);
+    r(ty-1, tx-1, tx, c.tail);
+  }
+  const stingerPos = tailPath[tailPath.length - 1];
+  const stx = stingerPos[0], sty = stingerPos[1];
+  p(stx-2, sty,    c.stingerTip);
+  p(stx-2, sty-1,  c.stingerTip);
+  p(stx-3, sty,    c.stingerD);
+
+  // ── Stinger-laser charge: glödande sfär vid stinger-spetsen under windup ──
+  // Visualiserar att stingern laddar upp energin INNAN beamen skjuts.
+  if (b.attackType === 'pincer' && b.attackState === 'windup') {
+    drawStingerCharge(b, (stx - 2) * P, sty * P);
+  }
+}
+
+function drawStingerCharge(b, sx, sy) {
+  const u = Math.min(1, b.attackStateT / 38);    // 0..1 windup-progress
+  const pulse = 0.7 + 0.3 * Math.sin(b.ft * 0.5);
+  const radius = 4 + u * 14;
+
+  // Yttre halo (gradient)
+  const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, radius * 2.4);
+  grad.addColorStop(0,   'rgba(255,255,220,' + (0.95 * u * pulse) + ')');
+  grad.addColorStop(0.35,'rgba(255,200,80,'  + (0.7  * u * pulse) + ')');
+  grad.addColorStop(0.7, 'rgba(255,100,20,'  + (0.4  * u) + ')');
+  grad.addColorStop(1,   'rgba(255,40,0,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(sx, sy, radius * 2.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Kärna (vit, växande)
+  ctx.fillStyle = 'rgba(255,255,255,' + (0.85 * u) + ')';
+  ctx.beginPath();
+  ctx.arc(sx, sy, Math.max(2, radius * 0.45), 0, Math.PI * 2);
+  ctx.fill();
+
+  // Energi-gnistor som dras mot stingern (signalerar uppladdning)
+  if (u > 0.25) {
+    for (let i = 0; i < 6; i++) {
+      const ang  = (b.ft * 0.08 + i * Math.PI / 3) % (Math.PI * 2);
+      const phase = ((b.ft * 1.5 + i * 6) % 26) / 26;       // 1 → 0 över tid
+      const dist  = (1 - phase) * 26 + 4;
+      const px2 = sx + Math.cos(ang) * dist;
+      const py2 = sy + Math.sin(ang) * dist;
+      ctx.fillStyle = 'rgba(255,220,80,' + (0.8 * u * phase) + ')';
+      ctx.fillRect(px2 - 1.5, py2 - 1.5, 3, 3);
+    }
+  }
+}
+
+// ── DRAW SCORPION PROJECTILES ──────────────────────────────────────────────
+// Svansen själv står för det visuella slaget (via 'tail-slam'-posen).
+// Vi behåller bara en lätt damm-byst när stingern träffar marken — inga
+// orange linjer/ringar/spikar som kan misstas för en "energiprojektil".
+function drawShockwaves() {
+  for (const s of gs.shockwaves) {
+    const ft = s.ft;
+    // Subtila damm-puffar precis vid slag-punkten, första ~12 frames
+    if (ft < 12) {
+      const alpha = 1 - ft / 12;
+      ctx.fillStyle = 'rgba(200,160,110,' + (alpha * 0.5) + ')';
+      for (let i = 0; i < 5; i++) {
+        const angle = ((i + 0.5) / 5) * Math.PI;            // 0..π → vänster halvcirkel
+        const dist = 4 + ft * 1.2 + i * 1.5;
+        const px2 = s.x + Math.cos(angle) * dist * 1.2;
+        const py2 = s.y - Math.sin(angle) * dist * 0.5 - ft * 0.2;
+        ctx.fillRect(px2 - 1, py2 - 1, 2, 2);
+      }
+    }
+  }
+}
+
+function drawEnergyBeams() {
+  for (const e of gs.energyBeams) {
+    const flicker = 0.65 + 0.35 * Math.sin(e.ft * 0.6);
+    // Beam fade in/out around its life-window
+    let intensity = 1;
+    if (e.ft < 4) intensity = e.ft / 4;
+    else if (e.ft > e.life) intensity = Math.max(0, 1 - (e.ft - e.life) / 14);
+    const a = intensity * flicker;
+    if (a <= 0) continue;
+    const beamX = e.xLeft, beamW = e.xRight - e.xLeft;
+    // Bredare gradient-glow
+    const grad = ctx.createLinearGradient(beamX, e.y, e.xRight, e.y);
+    grad.addColorStop(0,    'rgba(255,80,30,0)');
+    grad.addColorStop(0.15, 'rgba(255,180,40,' + (0.5 * a) + ')');
+    grad.addColorStop(0.85, 'rgba(255,80,30,' + (0.8 * a) + ')');
+    grad.addColorStop(1,    'rgba(255,40,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(beamX, e.y - 13, beamW, 26);
+    // Inre kärna
+    ctx.fillStyle = 'rgba(255,240,150,' + a + ')';
+    ctx.fillRect(beamX, e.y - 3, beamW, 6);
+    // Gnistor längs banan
+    for (let i = 0; i < 10; i++) {
+      const sx = beamX + ((i+1) * beamW / 11) + Math.sin(e.ft*0.4 + i) * 6;
+      const sy = e.y + Math.sin(e.ft*0.5 + i*1.7) * 8;
+      ctx.fillStyle = 'rgba(255,220,80,' + a + ')';
+      ctx.fillRect(sx, sy, 3, 3);
+    }
+
+    // ── BLIXT-EXPLOSION vid stingern när beamen avfyras (frame 0–10) ──────
+    if (e.srcX !== undefined && e.ft < 12) {
+      const flashU = 1 - e.ft / 12;
+      const flashR = 12 + e.ft * 4;
+      const flashGrad = ctx.createRadialGradient(e.srcX, e.srcY, 0, e.srcX, e.srcY, flashR);
+      flashGrad.addColorStop(0,   'rgba(255,255,255,' + flashU + ')');
+      flashGrad.addColorStop(0.4, 'rgba(255,220,80,'  + (flashU * 0.8) + ')');
+      flashGrad.addColorStop(1,   'rgba(255,80,0,0)');
+      ctx.fillStyle = flashGrad;
+      ctx.beginPath();
+      ctx.arc(e.srcX, e.srcY, flashR, 0, Math.PI * 2);
+      ctx.fill();
+      // Star-burst spikar utåt (kort sken)
+      if (e.ft < 6) {
+        ctx.strokeStyle = 'rgba(255,255,200,' + flashU + ')';
+        ctx.lineWidth = 2;
+        const spikeLen = 18 - e.ft * 2;
+        for (let i = 0; i < 4; i++) {
+          const ang = i * Math.PI / 2 + e.ft * 0.1;
+          ctx.beginPath();
+          ctx.moveTo(e.srcX, e.srcY);
+          ctx.lineTo(e.srcX + Math.cos(ang) * spikeLen, e.srcY + Math.sin(ang) * spikeLen);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+function drawVenomPools() {
+  for (const v of gs.venomPools) {
+    if (v.state === 'arc') {
+      const u = v.t / v.arcDur;
+      const arcHeight = 80;
+      const x = v.sx + (v.ex - v.sx) * u;
+      const y = v.sy + (v.ey - v.sy) * u - arcHeight * Math.sin(u * Math.PI);
+      // Trail
+      for (let i = 0; i < 5; i++) {
+        const tu = u - i * 0.04;
+        if (tu < 0) continue;
+        const tx = v.sx + (v.ex - v.sx) * tu;
+        const ty = v.sy + (v.ey - v.sy) * tu - arcHeight * Math.sin(tu * Math.PI);
+        ctx.fillStyle = 'rgba(80,220,40,' + (0.6 - i*0.1) + ')';
+        ctx.fillRect(tx - 3, ty - 3, 6, 6);
+      }
+      // Main droplet
+      ctx.fillStyle = '#66ff44';
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#aaff88';
+      ctx.beginPath(); ctx.arc(x-1, y-1, 2, 0, Math.PI*2); ctx.fill();
+    } else {
+      // pool
+      const w = v.poolW;
+      if (w <= 0) continue;
+      const px2 = v.poolX, py = v.poolY;
+      ctx.fillStyle = 'rgba(60,160,30,0.85)';
+      ctx.fillRect(px2 - w/2, py - 5, w, 5);
+      ctx.fillStyle = '#66dd44';
+      ctx.fillRect(px2 - w/2, py - 4, w, 2);
+      // Bubblor
+      for (let i = 0; i < 4; i++) {
+        const bx = px2 - w/2 + 6 + i * (w - 12) / 3;
+        const by = py - 7 + Math.sin(v.poolLife*0.12 + i) * 2;
+        ctx.fillStyle = '#aaff88';
+        ctx.fillRect(bx, by, 2, 2);
+      }
+      // Glittrande partiklar
+      for (let i = 0; i < 3; i++) {
+        const sx = px2 - w/2 + (i+1) * w/4 + Math.sin(v.poolLife*0.2 + i) * 3;
+        const sy = py - 6 - ((v.poolLife*0.4 + i*3) % 10);
+        ctx.fillStyle = 'rgba(120,255,80,0.5)';
+        ctx.fillRect(sx, sy, 2, 2);
+      }
+    }
+  }
+}
+
+function drawSlimeWaves() {
+  const P = 4;
+  for (const s of gs.slimeWaves) {
+    const ox = Math.round(s.x / P), oy = Math.round(s.y / P);
+    // Lägre våg: ~2–5 P-units tall (visuellt ≤ ~20 px) så den går att hoppa över
+    const halfW = 7;
+    for (let i = -halfW; i <= halfW; i++) {
+      const h = Math.max(1, Math.round(3 + Math.sin((i*0.5) + s.ft*0.14) * 2));
+      ctx.fillStyle = i%3 === 0 ? '#33bb22' : i%3 === 1 ? '#228811' : '#44dd22';
+      ctx.fillRect((ox + i) * P, (oy - h) * P, P, h * P);
+    }
+    // Drip tips
+    for (let i = -halfW; i <= halfW; i += 2) {
+      const h = Math.max(1, Math.round(3 + Math.sin((i*0.5) + s.ft*0.14) * 2));
+      ctx.fillStyle = '#66ff44';
+      ctx.fillRect((ox + i) * P, (oy - h - 1) * P, P, P);
+    }
+    // Highlight + ground slick
+    ctx.fillStyle = '#aaffaa';
+    ctx.fillRect((ox - 2) * P, (oy - 4) * P, 4*P, P);
+    ctx.fillStyle = '#115511';
+    ctx.fillRect((ox - halfW) * P, oy * P, (halfW*2 + 1) * P, P);
+  }
+}
+
+function drawMiniSnail(e, flash) {
+  const P = 3;
+  const wob = Math.floor(e.ft / 8) % 2 === 0 ? 0 : -P;
+  const ox = Math.round(e.x / P), oy = Math.round(e.y / P);
+
+  const c = flash ? {
+    body:'#ffffff', bodyD:'#dddddd', shell:'#ffffff', shellD:'#dddddd', shellHL:'#ffffff', eye:'#ffffff'
+  } : {
+    body:'#88aa44', bodyD:'#556633', shell:'#cc9944', shellD:'#885522', shellHL:'#ffcc66', eye:'#ff2233'
+  };
+
+  const r = (y, x0, x1, col) => { ctx.fillStyle = col; ctx.fillRect(x0*P, y*P + wob, (x1-x0+1)*P, P); };
+  const p = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(x*P, y*P + wob, P, P); };
+
+  // Foot
+  r(oy,   ox-5, ox+4, c.bodyD);
+  r(oy-1, ox-5, ox+4, c.body);
+  r(oy-2, ox-4, ox+3, c.body);
+  // Head + stalks (head faces LEFT toward player)
+  r(oy-3, ox-6, ox-3, c.body);
+  r(oy-4, ox-7, ox-3, c.body);
+  p(ox-6, oy-5, c.body); p(ox-6, oy-6, c.eye);
+  p(ox-4, oy-5, c.body); p(ox-4, oy-6, c.eye);
+  // Shell on the back (right)
+  r(oy-5, ox-1, ox+4, c.shell);
+  r(oy-4, ox-1, ox+4, c.shell);
+  r(oy-3, ox,   ox+4, c.shellD);
+  p(ox+1, oy-5, c.shellHL);
+  p(ox+2, oy-4, c.shellD);
+}
+
+function drawBossVictory() {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, canvas.height/2 - 50, canvas.width, 100);
+  ctx.font = '18px "Press Start 2P"';
+  ctx.fillStyle = '#FFD700';
+  ctx.shadowColor = '#aa6600'; ctx.shadowBlur = 14;
+  const label = gs.lastBossKilled === 'scorpion' ? 'SKORPION BESEGRAD!' : 'SNIGEL BESEGRAD!';
+  ctx.fillText(label, canvas.width/2, canvas.height/2 + 2);
+  ctx.shadowBlur = 0;
+  ctx.font = '8px "Press Start 2P"';
+  if (gs.bossTest) {
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('Återgår till meny...', canvas.width/2, canvas.height/2 + 26);
+  } else {
+    ctx.fillStyle = '#FFD700';
+    ctx.shadowColor = '#aa6600'; ctx.shadowBlur = 8;
+    ctx.fillText('+100 POÄNG · FAS 2 BÖRJAR!', canvas.width/2, canvas.height/2 + 26);
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+  ctx.textAlign = 'left';
+}
+
+function drawBossHP() {
+  if (!gs.boss || gs.boss.dying || gs.boss.entering) return;
+  const b = gs.boss;
+  const bw = 200, bh = 12;
+  // Placerad så hearts (vänster) och score (höger) inte täcks över
+  const bx = Math.round(canvas.width / 2 - bw / 2 - 40);
+  const by = 14;
+  // Backdrop
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+  ctx.fillStyle = '#330000';
+  ctx.fillRect(bx, by, bw, bh);
+  // Fill – samma röda nyans som liv-hjärtana (#ee2244), tonar mot varning vid låg HP
+  const fillW = (b.hp / b.maxHp) * bw;
+  ctx.fillStyle = b.hp > 6 ? '#ee2244' : b.hp > 3 ? '#ff8822' : '#ffdd22';
+  ctx.fillRect(bx, by, fillW, bh);
+  // Top shine (1 px) – speglar hjärtanas highlight
+  if (b.hp > 6 && fillW > 2) {
+    ctx.fillStyle = '#ff99bb';
+    ctx.fillRect(bx, by, fillW, 2);
+  }
+  // Segment ticks (every 10%)
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  for (let i = 1; i < b.maxHp; i++) {
+    ctx.fillRect(bx + (i/b.maxHp)*bw - 1, by, 1, bh);
+  }
+  // Border
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+  // Label (centrerad under baren)
+  ctx.fillStyle = 'white';
+  ctx.font = '7px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+  const bossLabel = b.type === 'scorpion' ? 'SKORPION' : 'SNIGEL';
+  ctx.fillText(bossLabel + ' ' + b.hp + '/' + b.maxHp, bx + bw / 2, by + bh + 12);
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'left';
+}
+
+function submitName() {
+  const n = playerName.trim();
+  if (!n) return;
+  playerName = n;
+  nameInputEl.style.display = 'none';
+  nameInputEl.blur();
+  loadScores();
+  gs.state = 'mainmenu';
+}
+
+// ── DIFFICULTY ────────────────────────────────────────────────────────────────
+function updateDifficulty() {
+  // Effective elapsed = real time MINUS tid som spenderats i bossfight (gs.pausedMs)
+  const t = (performance.now() - gs.startTime - gs.pausedMs) / 1000;
+  // Faster start (1.8), immediate ramp, sharper acceleration after 90s
+  gs.worldSpeed = 1.8 + t * 0.014 + (t > 90 ? (t - 90) * 0.05 : 0);
+  gs.worldSpeed = Math.min(gs.worldSpeed, 8);
+  gs.spawnRate  = Math.max(45, 160 - t * 1.2);
+  // Fas 2 låser upp efter att snigelbossen har besegrats (sker tidigast runt t=90)
+  if (t > 90 && gs.snailBossDone) gs.phase = Math.max(gs.phase, 2);
+  if (t > 240) gs.phase = Math.max(gs.phase, 3);
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+function update() {
+  if (gs.state !== 'playing') return;
+
+  gs.frame++;
+  // Boss-test sessions don't accumulate score/distance.
+  // I riktigt spel pausas poängräkningen så fort en boss är aktiv (entré + fight)
+  // och återupptas direkt när bossen börjar dö – så man inte kan farma poäng på
+  // minisniglar eller bara stå still vid bossen.
+  if (!gs.bossTest) {
+    const bossActive = gs.boss && !gs.boss.dying;
+    if (!bossActive) gs.distance++;
+    gs.score = Math.max(gs.score, (gs.distance / 12) | 0);
+    // Pausa difficulty-timern under hela boss-encounter (entré + fight + segermoment)
+    // så worldSpeed och spawnRate inte hinner skjuta i höjden under fighten.
+    if (gs.boss || gs.bossDefeated) gs.pausedMs += 1000 / 60;
+    updateDifficulty();
+  }
+  // Music: boss-track (4) under hela bossfighten OCH segermomentet,
+  // sen rakt över till nya fasens musik när fas 2 låses upp.
+  // Musik: T4 = snigel-boss (Battle Mörk), T5 = scorpion-boss (Sandstorm),
+  // annars fas-musik. Boss-låten fortsätter spela under segermomentet.
+  let _musicTrack = gs.phase;
+  if (gs.boss) {
+    _musicTrack = gs.boss.type === 'scorpion' ? 5 : 4;
+  } else if (gs.bossDefeated) {
+    _musicTrack = gs.lastBossKilled === 'scorpion' ? 5 : 4;
+  }
+  bgm.update(_musicTrack);
+  updateBackground();
+  updateBlob();
+  updateFireballs();
+  updateEnemyFireballs();
+  updateEnemies();
+  updateBoss();
+  updateSlimeWaves();
+  updateShockwaves();
+  updateEnergyBeams();
+  updateVenomPools();
+  updateParticles();
+  updateHeartAnims();
+  updateFireballExplosions();
+  updateIceExplosions();
+  updateGifts();
+
+  // Ice power timer
+  if (gs.icePower && performance.now() >= gs.icePowerEnd) {
+    gs.icePower = false;
+    blob.specialCD = 60; // 1-second refill after ice power ends
+  }
+
+  // ── Pre-boss rensningsfönster ────────────────────────────────────────────────
+  // Vid t > 88 s i ett vanligt spel slutar vi spawna nya fiender och väntar tills
+  // alla nuvarande har försvunnit innan snigelbossen kommer in från höger.
+  const tSecNow = (performance.now() - gs.startTime) / 1000;
+  const inPreBossWindow = !gs.bossTest && !gs.boss && !gs.bossDefeated &&
+                          !gs.snailBossDone && tSecNow > 88;
+  if (inPreBossWindow) {
+    gs.snailBossArmed = true;
+    // Spawna bossen när planen är fri från goblins/jättar/bats (minisniglar räknas inte)
+    const blockers = gs.enemies.filter(e => !e.dead && e.type !== 'mini-snail');
+    if (blockers.length === 0) spawnSnailBoss();
+  }
+
+  // Gift spawn milestone (suppressed during a boss fight / boss test / pre-boss)
+  if (!gs.boss && !gs.bossTest && !inPreBossWindow
+      && !gs.gifts.some(g => !g.dead) && gs.score >= gs.nextGiftScore) {
+    gs.nextGiftScore += 400;
+    spawnGift();
+  }
+
+  // Normal enemy spawn — paused while the boss is alive or about to arrive
+  if (!gs.boss && !gs.bossTest && !inPreBossWindow) {
+    gs.spawnTimer++;
+    if (gs.spawnTimer >= gs.spawnRate) {
+      spawnEnemy();
+      gs.spawnTimer = 0;
+    }
+  }
+
+  // ── Boss-defeated transition ─────────────────────────────────────────────────
+  // Test-läge → tillbaka till menyn. Riktigt spel → låt upp fas 2 efter en
+  // kort segerpaus så bakgrunden börjar scrolla igen mjukt.
+  if (gs.bossDefeated) {
+    gs.bossVictoryT++;
+    const VICT_FRAMES = gs.bossTest ? 90 : 120;
+    if (gs.bossVictoryT >= VICT_FRAMES) {
+      if (gs.bossTest) {
+        bgm.stop();
+        gs.state    = 'mainmenu';
+        gs.bossTest = null;
+      } else {
+        // Lås upp fas 2 → bakgrund + scroll återupptas via updateBackground
+        gs.snailBossDone = true;
+        gs.snailBossArmed = false;
+        // Nollställ alla spawn-cooldowns så det inte sprutas fiender/bats direkt
+        gs.spawnTimer    = 0;
+        gs.lastBatFrame  = gs.frame;
+        gs.lastGiantFrame = gs.frame;
+      }
+      gs.bossDefeated = false;
+    }
+  }
+
+  // ── Bat spawn (independent of normal enemy timer, starts after 25 s) ─────────
+  const BAT_COOLDOWN = 360; // min 6 seconds between bats
+  if (!gs.boss && !gs.bossTest && !inPreBossWindow
+      && tSecNow > 25
+      && gs.frame - gs.lastBatFrame >= BAT_COOLDOWN
+      && Math.random() < 0.008) {
+    gs.lastBatFrame = gs.frame;
+    const baseY = 150 + Math.random() * 70; // fly at ~150-220 px from top
+    gs.enemies.push({
+      type: 'bat', x: canvas.width + 30, y: baseY, baseY,
+      hw: 24, hh: 16, hp: 1, maxHp: 1,
+      speed: 2.2 + Math.random() * 0.8 + (gs.phase - 1) * 0.3,
+      dead: false, deathT: 0, ft: 0,
+      batState: 'flying', attackMode: null, vx: 0, vy: 0,
+    });
+  }
+}
+
+function draw() {
+  if (gs.state === 'nameentry')    { drawNameEntry();    return; }
+  if (gs.state === 'mainmenu')     { drawMainMenu();     return; }
+  if (gs.state === 'leaderboard')  { drawLeaderboard();  return; }
+  if (gs.state === 'credits')      { drawCredits();      return; }
+
+  drawBackground();
+  drawParticles();
+  drawFireballExplosions();
+  drawIceExplosions();
+  drawGifts();
+  drawEnemies();
+  drawBoss();
+  drawSlimeWaves();
+  drawShockwaves();
+  drawVenomPools();
+  drawEnergyBeams();
+  drawFireballs();
+  drawEnemyFireballs();
+  drawBlob();
+  drawHeartAnims();
+  drawHUD();
+  drawBossHP();
+  if (gs.bossDefeated) drawBossVictory();
+  if (gs.state === 'gameover') drawGameOver();
+}
+
+// Fixed timestep – runs game logic at exactly 60 steps/s regardless of display Hz
+const STEP_MS   = 1000 / 60;          // 16.667 ms per logic step
+let   _lastTime = performance.now();  // initialised before first loop call
+let   _accum    = 0;
+
+function loop(timestamp = performance.now()) {
+  const elapsed = Math.min(timestamp - _lastTime, 50); // cap at 50 ms (tab hidden etc.)
+  _lastTime  = timestamp;
+  _accum    += elapsed;
+
+  while (_accum >= STEP_MS) {
+    update();
+    updateGameOverFX();
+    _accum -= STEP_MS;
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── APPLE TOUCH ICON (generated from blob sprite, 180×180) ───────────────────
+(function generateAppIcon() {
+  const ic = document.createElement('canvas');
+  ic.width = ic.height = 180;
+  const c = ic.getContext('2d');
+  const Q = 8;
+
+  // Sky bands
+  c.fillStyle = '#aaddff'; c.fillRect(0,   0, 180,  81);
+  c.fillStyle = '#cceeff'; c.fillRect(0,  81, 180,  63);
+  c.fillStyle = '#bbffee'; c.fillRect(0, 144, 180,  36);
+
+  // Ground
+  const GY = 148;
+  c.fillStyle = '#99dd66'; c.fillRect(0, GY,    180, 32);
+  c.fillStyle = '#77bb44'; c.fillRect(0, GY,    180,  Q);
+  c.fillStyle = '#99dd66'; c.fillRect(0, GY+Q,  180,  Q);
+
+  // Pixel cloud
+  c.fillStyle = '#ffffff';
+  c.fillRect(102, 20, 44, Q); c.fillRect(94, 20+Q, 60, Q); c.fillRect(102, 20+2*Q, 44, Q);
+
+  // Blob sprite helpers (local to this scope)
+  const bx = 90 - 7*Q, by = GY - 10*Q;
+  function idot(gx,gy,col){ c.fillStyle=col; c.fillRect(bx+gx*Q,by+gy*Q,Q,Q); }
+  function irun(gy,x0,x1,col){ c.fillStyle=col; c.fillRect(bx+x0*Q,by+gy*Q,(x1-x0+1)*Q,Q); }
+
+  const body=[[-1,4,10],[0,2,12],[1,1,13],[2,1,13],[3,1,13],[4,1,13],[5,1,13],[6,1,13],[7,2,12],[8,4,10]];
+  const O='#1a3a1a', G='#55bb55', L='#aaee88', D='#2a7a2a';
+  irun(-2,3,11,O);
+  for (const [gy,x0,x1] of body) irun(gy,x0-1,x1+1,O);
+  irun(9,3,11,O);
+  for (const [gy,x0,x1] of body) {
+    irun(gy,x0,x1,G);
+    irun(gy,x0,x0+1, gy<=3 ? L : G);
+    idot(x1,gy,D);
+  }
+  // Eyes
+  irun(4,3,4,'#fff'); irun(5,3,4,'#fff');
+  idot(3,5,'#ffddcc'); idot(4,5,'#cc4433'); idot(3,4,'#fff');
+  irun(4,9,10,'#fff'); irun(5,9,10,'#fff');
+  idot(9,5,'#ffddcc'); idot(10,5,'#cc4433'); idot(9,4,'#fff');
+  // Mouth
+  idot(6,7,O); idot(7,7,O); idot(8,7,O); idot(5,8,O); idot(9,8,O);
+
+  // Sword (pixel art, rest angle)
+  const sx = bx + 14*Q, sy = by + 5*Q;
+  for (const [dy,dx,col] of [[0,0,'#fff'],[1,1,'#ddd'],[2,1,'#ddd'],[3,2,'#aaa'],[4,2,'#aaa'],[5,3,'#aaa'],[6,3,'#aaa'],[7,4,'#888'],[8,4,'#888']]) {
+    c.fillStyle=col; c.fillRect(sx+dx*Q, sy-dy*Q, Q, Q);
+  }
+  c.fillStyle='#ffcc00'; c.fillRect(sx+Q, sy+Q, 3*Q, Q);
+  c.fillStyle='#cc9900'; c.fillRect(sx+Q, sy+Q, Q, Q);
+  c.fillStyle='#884422'; c.fillRect(sx+2*Q, sy+2*Q, Q, 3*Q);
+  c.fillStyle='#552200'; c.fillRect(sx+2*Q, sy+4*Q, Q, Q);
+
+
+  const link = document.createElement('link');
+  link.rel  = 'apple-touch-icon';
+  link.href = ic.toDataURL('image/png');
+  document.head.appendChild(link);
+})();
+
+// Wire up HTML name input
+nameInputEl.addEventListener('input', () => {
+  playerName = nameInputEl.value.toUpperCase().slice(0, 10);
+  nameInputEl.value = playerName;
+});
+nameInputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();   // stoppa bubbling — annars triggar document-listener startGame() direkt efter
+    submitName();
+  }
+});
+
+// Start on name entry screen
+gs = { state: 'nameentry' };
+nameInputEl.style.display = 'block';
+nameInputEl.focus();
+loop();
+</script>
 </body>
 </html>
