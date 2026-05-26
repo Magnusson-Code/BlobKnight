@@ -2,7 +2,9 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>Blob Knight – Säsong 1 Statistik</title>
+<title>Blob Knight – Statistik</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
@@ -25,11 +27,50 @@
     text-align: center;
     font-size: 8px;
     color: rgba(200,150,255,0.5);
-    margin-bottom: 48px;
+    margin-bottom: 24px;
   }
+  .controls {
+    max-width: 900px;
+    margin: 0 auto 32px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .season-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(170,68,255,0.4);
+    color: rgba(255,255,255,0.6);
+    padding: 10px 16px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  .season-btn:hover { background: rgba(170,68,255,0.15); color: #cc88ff; }
+  .season-btn.active { background: rgba(170,68,255,0.25); color: #ffd700; border-color: #ffd700; }
+  .refresh-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: transparent;
+    border: 1px solid rgba(170,68,255,0.3);
+    color: rgba(200,150,255,0.5);
+    padding: 10px 14px;
+    cursor: pointer;
+    margin-left: 12px;
+  }
+  .refresh-btn:hover { color: #cc88ff; border-color: #aa44ff; }
+  .loading, .error-msg {
+    max-width: 600px;
+    margin: 60px auto;
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+  }
+  .error-msg { color: #ff6677; }
   .chart-section {
     max-width: 900px;
-    margin: 0 auto 60px;
+    margin: 0 auto 48px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(170,68,255,0.3);
     border-radius: 4px;
@@ -58,73 +99,368 @@
     padding: 6px 14px;
     margin-bottom: 24px;
   }
+  /* KPI-boxar (medelpoäng, median, idag) */
+  .kpi-row {
+    max-width: 900px;
+    margin: 0 auto 48px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .kpi-box {
+    flex: 1;
+    min-width: 180px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(170,68,255,0.3);
+    border-radius: 4px;
+    padding: 24px 18px;
+    text-align: center;
+  }
+  .kpi-label {
+    font-size: 7px;
+    color: rgba(200,150,255,0.6);
+    margin-bottom: 14px;
+    letter-spacing: 1.5px;
+  }
+  .kpi-value {
+    font-size: 20px;
+    color: #FFD700;
+    text-shadow: 0 0 12px rgba(255,215,0,0.3);
+    line-height: 1.2;
+  }
+  .kpi-sub {
+    font-size: 6px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
 
 <h1>BLOB KNIGHT</h1>
-<p class="subtitle">Säsong 1 Statistik</p>
+<p class="subtitle">Statistik (live från databasen)</p>
 
-<!-- GRAF 1: Spel per vecka -->
-<div class="chart-section">
-  <div class="chart-title">Antal spel per vecka</div>
-  <div class="chart-desc">Totalt 1 158 omgångar registrerade under Säsong 1</div>
-  <div class="total-badge">TOTALT: 1 158 SPEL</div>
-  <div class="chart-wrap">
-    <canvas id="weekChart"></canvas>
-  </div>
+<div class="controls">
+  <button class="season-btn" data-season="all">ALLA SÄSONGER</button>
+  <button class="season-btn" data-season="1">SÄSONG 1</button>
+  <button class="season-btn active" data-season="2">SÄSONG 2</button>
+  <button class="refresh-btn" id="refresh-btn">↻ UPPDATERA</button>
 </div>
 
-<!-- GRAF 2: Spel per spelare (topp 20) -->
-<div class="chart-section">
-  <div class="chart-title">Mest aktiva spelare – Topp 20</div>
-  <div class="chart-desc">Antal spelade omgångar per spelare</div>
-  <div class="chart-wrap" style="height:420px">
-    <canvas id="playerChart"></canvas>
+<div class="loading" id="loading">Laddar från databasen...</div>
+<div class="error-msg" id="error-msg" style="display:none"></div>
+
+<div id="stats-content" style="display:none">
+  <!-- KPI-RAD: nyckeltal överst (Antal spel idag · Medelpoäng · Medianpoäng) -->
+  <div class="kpi-row">
+    <div class="kpi-box">
+      <div class="kpi-label">ANTAL SPEL IDAG</div>
+      <div class="kpi-value" id="kpi-today">–</div>
+      <div class="kpi-sub" id="kpi-today-sub">spel registrerade idag</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-label">MEDELPOÄNG</div>
+      <div class="kpi-value" id="kpi-mean">–</div>
+      <div class="kpi-sub" id="kpi-mean-sub">snitt över alla rundor</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-label">MEDIANPOÄNG</div>
+      <div class="kpi-value" id="kpi-median">–</div>
+      <div class="kpi-sub" id="kpi-median-sub">mitten-värdet</div>
+    </div>
+  </div>
+
+  <!-- GRAF 1: Spel per vecka -->
+  <div class="chart-section">
+    <div class="chart-title">Antal spel per vecka</div>
+    <div class="chart-desc" id="week-desc">–</div>
+    <div class="total-badge" id="total-badge">–</div>
+    <div class="chart-wrap">
+      <canvas id="weekChart"></canvas>
+    </div>
+  </div>
+
+  <!-- GRAF 2: Spel per spelare -->
+  <div class="chart-section">
+    <div class="chart-title">Mest aktiva spelare – Topp 20</div>
+    <div class="chart-desc" id="player-desc">Antal spelade omgångar per spelare</div>
+    <div class="chart-wrap" style="height:420px">
+      <canvas id="playerChart"></canvas>
+    </div>
+  </div>
+
+  <!-- GRAF 3: Highscore -->
+  <div class="chart-section">
+    <div class="chart-title">Highscore – Topp 10</div>
+    <div class="chart-desc" id="highscore-desc">Bästa rundorna någonsin</div>
+    <div class="chart-wrap" style="height:320px">
+      <canvas id="highscoreChart"></canvas>
+    </div>
   </div>
 </div>
 
 <script>
-const weekLabels = [
-  'v.13 (23 mar)', 'v.14 (30 mar)', 'v.15 (6 apr)',
-  'v.16 (13 apr)', 'v.17 (20 apr)', 'v.18 (27 apr)',
-  'v.19 (4 maj)', 'v.20 (11 maj)'
-];
-const weekData = [17, 210, 1, 2, 159, 158, 4, 28];
+// ── FIREBASE INIT ────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBA62tFq5SLJobzTfPLskbUTSgnRn8YuWM",
+  authDomain: "blobknight.firebaseapp.com",
+  projectId: "blobknight",
+  storageBucket: "blobknight.firebasestorage.app",
+  messagingSenderId: "218956454798",
+  appId: "1:218956454798:web:35baabc854314df714a2df"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-const playerLabels = [
-  'ANTONJV','KN0TT','SIGGE','ELSA','OLIVER,S','BOLIVER',
-  'PHILIP','LINNEA','OSCIS','SIMÅÅÅN','FLOPPIE','ANTON',
-  'LINUS','MALTEEEEEE','RECORD','MONA','THEGOAT','TEST','ZIA','JOHNPORK'
-];
-const playerData = [110,62,47,29,26,26,22,18,17,16,15,15,13,10,8,8,7,6,6,6];
+// ── STATE ────────────────────────────────────────────────────────────────────
+let allDocs = [];
+let weekChart = null;
+let playerChart = null;
+let highscoreChart = null;
+let currentFilter = '2';
+
+// ── LOAD DATA ────────────────────────────────────────────────────────────────
+async function loadAllScores() {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('loading').textContent = 'Laddar från databasen...';
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('stats-content').style.display = 'none';
+
+  try {
+    const snap = await db.collection('scores').get();
+    allDocs = snap.docs.map(d => d.data());
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('stats-content').style.display = 'block';
+    render();
+  } catch (err) {
+    console.error('Failed to load scores:', err);
+    document.getElementById('loading').style.display = 'none';
+    const errEl = document.getElementById('error-msg');
+    errEl.style.display = 'block';
+    errEl.textContent = 'Kunde inte ladda statistik: ' + (err.message || 'okänt fel') +
+                        '\n(är annonsblockerare aktiv? Tillåt firestore.googleapis.com)';
+  }
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+const SWEDISH_MONTHS = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+
+function isoWeek(date) {
+  // ISO 8601 week number
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function startOfISOWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() + 1 - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function weekLabel(monday) {
+  const w = isoWeek(monday);
+  const day = monday.getDate();
+  const mon = SWEDISH_MONTHS[monday.getMonth()];
+  return 'v.' + w + ' (' + day + ' ' + mon + ')';
+}
 
 // Färger per bar (gradient från guld → lila)
-function barColors(n, alpha = 0.85) {
+function barColors(n, alpha) {
+  alpha = alpha || 0.85;
   return Array.from({length: n}, (_, i) => {
-    const t = i / (n - 1);
+    const t = n === 1 ? 0 : i / (n - 1);
     const r = Math.round(255 - t * 80);
     const g = Math.round(215 - t * 170);
-    const b = Math.round(0   + t * 255);
-    return `rgba(${r},${g},${b},${alpha})`;
+    const b = Math.round(0 + t * 255);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   });
 }
 
-// Graf 1 – veckor
-new Chart(document.getElementById('weekChart'), {
-  type: 'bar',
-  data: {
-    labels: weekLabels,
-    datasets: [{
-      label: 'Antal spel',
-      data: weekData,
-      backgroundColor: barColors(weekData.length),
-      borderColor: barColors(weekData.length, 1),
-      borderWidth: 1,
-      borderRadius: 2,
-    }]
-  },
-  options: {
+function fmtNum(n) {
+  return n.toLocaleString('sv-SE');
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  // Filter
+  const filtered = currentFilter === 'all'
+    ? allDocs
+    : allDocs.filter(d => d.season === parseInt(currentFilter, 10));
+
+  // ── Aggregate per ISO-week ──
+  const weekBuckets = {};
+  filtered.forEach(doc => {
+    if (!doc.ts || typeof doc.ts.toDate !== 'function') return;
+    const date = doc.ts.toDate();
+    const monday = startOfISOWeek(date);
+    const key = monday.toISOString().slice(0, 10);  // YYYY-MM-DD
+    if (!weekBuckets[key]) weekBuckets[key] = { date: monday, count: 0 };
+    weekBuckets[key].count++;
+  });
+
+  const sortedWeeks = Object.values(weekBuckets).sort((a, b) => a.date - b.date);
+  const weekLabels = sortedWeeks.map(w => weekLabel(w.date));
+  const weekData   = sortedWeeks.map(w => w.count);
+
+  // ── Aggregate per player ──
+  const playerCounts = {};
+  filtered.forEach(doc => {
+    if (!doc.name) return;
+    playerCounts[doc.name] = (playerCounts[doc.name] || 0) + 1;
+  });
+  const sortedPlayers = Object.entries(playerCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20);
+  const playerLabels = sortedPlayers.map(e => e[0]);
+  const playerData   = sortedPlayers.map(e => e[1]);
+
+  // ── Topp 10 highscore (enskilda rundor, kan inkludera samma spelare flera gånger) ──
+  const sortedScores = filtered
+    .filter(d => typeof d.score === 'number' && d.score > 0 && d.name)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+  const hsLabels = sortedScores.map((d, i) => '#' + (i + 1) + '  ' + d.name);
+  const hsData   = sortedScores.map(d => d.score);
+
+  // ── KPI: medel, median, idag ──
+  const validScores = filtered
+    .filter(d => typeof d.score === 'number' && d.score >= 0)
+    .map(d => d.score);
+
+  let kpiMean = null, kpiMedian = null;
+  if (validScores.length > 0) {
+    kpiMean = validScores.reduce((s, v) => s + v, 0) / validScores.length;
+    const sortedAsc = [...validScores].sort((a, b) => a - b);
+    const mid = Math.floor(sortedAsc.length / 2);
+    kpiMedian = sortedAsc.length % 2 === 0
+      ? (sortedAsc[mid - 1] + sortedAsc[mid]) / 2
+      : sortedAsc[mid];
+  }
+
+  // Antal spel "idag" enligt lokal tid
+  const now = new Date();
+  const todayCount = filtered.filter(d => {
+    if (!d.ts || typeof d.ts.toDate !== 'function') return false;
+    const dt = d.ts.toDate();
+    return dt.getFullYear() === now.getFullYear()
+        && dt.getMonth()    === now.getMonth()
+        && dt.getDate()     === now.getDate();
+  }).length;
+
+  document.getElementById('kpi-mean').textContent   = kpiMean   === null ? '–' : fmtNum(Math.round(kpiMean));
+  document.getElementById('kpi-median').textContent = kpiMedian === null ? '–' : fmtNum(Math.round(kpiMedian));
+  document.getElementById('kpi-today').textContent  = fmtNum(todayCount);
+  document.getElementById('kpi-mean-sub').textContent   = 'över ' + fmtNum(validScores.length) + ' rundor';
+  document.getElementById('kpi-median-sub').textContent = 'mitten-värdet';
+  document.getElementById('kpi-today-sub').textContent  = todayCount === 0 ? 'inga spel ännu idag' : 'spel registrerade idag';
+
+  // ── Update headers / totals ──
+  const total = filtered.length;
+  const seasonLabel = currentFilter === 'all' ? 'ALLA SÄSONGER' : 'SÄSONG ' + currentFilter;
+  document.getElementById('total-badge').textContent =
+    'TOTALT: ' + fmtNum(total) + ' SPEL · ' + seasonLabel;
+  document.getElementById('week-desc').textContent =
+    sortedWeeks.length === 0
+      ? 'Ingen data ännu för detta filter'
+      : 'Aktivitet över ' + sortedWeeks.length + ' veckor';
+  document.getElementById('player-desc').textContent =
+    sortedPlayers.length === 0
+      ? 'Ingen data ännu'
+      : 'Antal spelade omgångar · ' + sortedPlayers.length + ' unika spelare i topp 20';
+  document.getElementById('highscore-desc').textContent =
+    sortedScores.length === 0
+      ? 'Inga resultat ännu'
+      : 'Bästa rundorna · högsta: ' + fmtNum(sortedScores[0].score) + ' poäng';
+
+  // ── Destroy + recreate charts (Chart.js doesn't have a clean "update labels" for big changes) ──
+  if (weekChart)      weekChart.destroy();
+  if (playerChart)    playerChart.destroy();
+  if (highscoreChart) highscoreChart.destroy();
+
+  // ── Week chart ──
+  weekChart = new Chart(document.getElementById('weekChart'), {
+    type: 'bar',
+    data: {
+      labels: weekLabels,
+      datasets: [{
+        label: 'Antal spel',
+        data: weekData,
+        backgroundColor: barColors(weekData.length || 1),
+        borderColor:    barColors(weekData.length || 1, 1),
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: chartBaseOptions('vertical')
+  });
+
+  // ── Player chart ──
+  playerChart = new Chart(document.getElementById('playerChart'), {
+    type: 'bar',
+    data: {
+      labels: playerLabels,
+      datasets: [{
+        label: 'Antal spel',
+        data: playerData,
+        backgroundColor: barColors(playerData.length || 1),
+        borderColor:    barColors(playerData.length || 1, 1),
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: chartBaseOptions('horizontal')
+  });
+
+  // ── Highscore chart (medaljfärger för topp 3, lila för resten) ──
+  highscoreChart = new Chart(document.getElementById('highscoreChart'), {
+    type: 'bar',
+    data: {
+      labels: hsLabels,
+      datasets: [{
+        label: 'Poäng',
+        data: hsData,
+        backgroundColor: hsColors(hsData.length, 0.85),
+        borderColor:    hsColors(hsData.length, 1),
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: chartBaseOptions('horizontal', 'poäng')
+  });
+}
+
+// Medalj-färger: guld / silver / brons för topp 3, sen lila gradient
+function hsColors(n, alpha) {
+  alpha = alpha || 0.85;
+  const medals = [
+    [255, 215,   0],   // gold
+    [192, 192, 192],   // silver
+    [205, 127,  50],   // bronze
+  ];
+  return Array.from({length: n}, (_, i) => {
+    if (i < 3) {
+      const [r, g, b] = medals[i];
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+    // Lila gradient för plats 4-10
+    const t = n <= 4 ? 0 : (i - 3) / Math.max(1, n - 4);
+    const r = Math.round(170 - t * 30);
+    const g = Math.round( 68 - t * 20);
+    const b = Math.round(255 - t * 55);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  });
+}
+
+function chartBaseOptions(direction, unit) {
+  const horizontal = direction === 'horizontal';
+  const unitLabel = unit || 'spel';
+  return {
+    indexAxis: horizontal ? 'y' : 'x',
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -135,65 +471,38 @@ new Chart(document.getElementById('weekChart'), {
         borderWidth: 1,
         titleFont: { family: "'Press Start 2P'", size: 9 },
         bodyFont:  { family: "'Press Start 2P'", size: 9 },
-        callbacks: { label: ctx => ' ' + ctx.raw + ' spel' }
+        callbacks: { label: ctx => ' ' + fmtNum(ctx.raw) + ' ' + unitLabel }
       }
     },
     scales: {
       x: {
-        grid: { color: 'rgba(255,255,255,0.05)' },
-        ticks: { font: { family: "'Press Start 2P'", size: 7 }, color: 'rgba(255,255,255,0.6)' }
+        grid: { color: horizontal ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.05)' },
+        ticks: { font: { family: "'Press Start 2P'", size: 7 }, color: 'rgba(255,255,255,0.6)' },
+        beginAtZero: true,
       },
       y: {
-        grid: { color: 'rgba(255,255,255,0.07)' },
-        ticks: { font: { family: "'Press Start 2P'", size: 7 }, color: 'rgba(255,255,255,0.6)' },
-        beginAtZero: true
+        grid: { color: horizontal ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.07)' },
+        ticks: { font: { family: "'Press Start 2P'", size: horizontal ? 8 : 7 }, color: 'rgba(255,255,255,0.6)' },
+        beginAtZero: true,
       }
     }
-  }
+  };
+}
+
+// ── EVENT WIRING ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.season-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.season;
+    render();
+  });
 });
 
-// Graf 2 – spelare
-new Chart(document.getElementById('playerChart'), {
-  type: 'bar',
-  data: {
-    labels: playerLabels,
-    datasets: [{
-      label: 'Antal spel',
-      data: playerData,
-      backgroundColor: barColors(playerData.length),
-      borderColor: barColors(playerData.length, 1),
-      borderWidth: 1,
-      borderRadius: 2,
-    }]
-  },
-  options: {
-    indexAxis: 'y',
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#1a0a2e',
-        borderColor: '#aa44ff',
-        borderWidth: 1,
-        titleFont: { family: "'Press Start 2P'", size: 9 },
-        bodyFont:  { family: "'Press Start 2P'", size: 9 },
-        callbacks: { label: ctx => ' ' + ctx.raw + ' spel' }
-      }
-    },
-    scales: {
-      x: {
-        grid: { color: 'rgba(255,255,255,0.07)' },
-        ticks: { font: { family: "'Press Start 2P'", size: 7 }, color: 'rgba(255,255,255,0.6)' },
-        beginAtZero: true
-      },
-      y: {
-        grid: { color: 'rgba(255,255,255,0.05)' },
-        ticks: { font: { family: "'Press Start 2P'", size: 8 }, color: 'rgba(255,255,255,0.85)' }
-      }
-    }
-  }
-});
+document.getElementById('refresh-btn').addEventListener('click', loadAllScores);
+
+// ── INITIAL LOAD ─────────────────────────────────────────────────────────────
+loadAllScores();
 </script>
 </body>
 </html>

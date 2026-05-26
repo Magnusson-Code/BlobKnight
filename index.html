@@ -647,9 +647,11 @@ function resetState() {
     shockwaves:     [],          // scorpion tail-slam shockwaves
     energyBeams:    [],          // scorpion pincer-sweep beams (head-height)
     venomPools:     [],          // scorpion venom (arc + landed pool)
-    snailBossDone:  false,       // true after snail boss is killed in real game
-    snailBossArmed: false,       // true once we've entered the pre-boss window (rensningsfönster)
-    lastBossKilled: null,        // 'snail' | 'scorpion' – used by victory overlay
+    snailBossDone:    false,     // true after snail boss is killed in real game
+    snailBossArmed:   false,     // true once we've entered the pre-snail window (rensningsfönster)
+    scorpionBossDone: false,     // true after scorpion boss is killed in real game
+    scorpionBossArmed:false,     // true once we've entered the pre-scorpion window
+    lastBossKilled:   null,      // 'snail' | 'scorpion' – used by victory overlay & transition
   };
 }
 
@@ -710,6 +712,7 @@ function loadAllSeasonsScores() {
 
 function saveScore(name, score) {
   if (!name || score <= 0) return;
+  if (isDev) return;               // dev-läge: spara aldrig till leaderboard
   if (!firebaseAvailable) return;  // ingen Firebase = ingen save, skippa tyst
   db.collection('scores').add({
     name: name,
@@ -794,6 +797,15 @@ function updateBlob() {
 
 function blobHurt() {
   if (blob.invincible) return;
+  // Dev-mode god mode: i vanligt spel tas ingen skada, men i boss-test
+  // (TESTA SNIGEL/SCORPION) gäller normal skada så man kan testa svårighet.
+  if (isDev && !gs.bossTest) {
+    spawnParticles(blob.x, blob.y, '#88ff88', 6);   // grönt = "skydd"
+    blob.invincible = true;
+    blob.invTimer   = 30;                             // kort blink
+    blob.blinkT     = 0;
+    return;
+  }
   blob.lives--;
   blob.invincible = true;
   blob.invTimer   = 90;
@@ -2645,16 +2657,22 @@ function endGame() {
   gs.state = 'gameover';
   hasPlayed = true;
   bgm.stop();
-  if (gs.score > highScore) {
-    highScore = gs.score;
-    localStorage.setItem('blobKnightHS', highScore);
+  // Dev-läge: spara INGENTING (varken lokal highScore eller leaderboard).
+  // Slå även av top-placeringar så vi inte triggar fireworks "felaktigt".
+  if (!isDev) {
+    if (gs.score > highScore) {
+      highScore = gs.score;
+      localStorage.setItem('blobKnightHS', highScore);
+    }
+    gs.isNewTop1  = gs.score > 0 && (scoreCache.length === 0 || gs.score > scoreCache[0].score);
+    gs.isTopScore = gs.score > 0 && (gs.isNewTop1 || scoreCache.length < 10 ||
+                    gs.score > scoreCache[scoreCache.length - 1].score);
+  } else {
+    gs.isNewTop1  = false;
+    gs.isTopScore = false;
   }
-  // Determine placement vs current cached scoreboard
-  gs.isNewTop1  = gs.score > 0 && (scoreCache.length === 0 || gs.score > scoreCache[0].score);
-  gs.isTopScore = gs.score > 0 && (gs.isNewTop1 || scoreCache.length < 10 ||
-                  gs.score > scoreCache[scoreCache.length - 1].score);
   gs.goFwInit   = false;
-  saveScore(playerName, gs.score);
+  saveScore(playerName, gs.score);   // (no-op i dev-läge tack vare guard i saveScore)
   loadScores();
 }
 
@@ -3685,8 +3703,9 @@ function updateDifficulty() {
   gs.worldSpeed = Math.min(gs.worldSpeed, 8);
   gs.spawnRate  = Math.max(45, 160 - t * 1.2);
   // Fas 2 låser upp efter att snigelbossen har besegrats (sker tidigast runt t=90)
-  if (t > 90 && gs.snailBossDone) gs.phase = Math.max(gs.phase, 2);
-  if (t > 240) gs.phase = Math.max(gs.phase, 3);
+  if (t > 90 && gs.snailBossDone)     gs.phase = Math.max(gs.phase, 2);
+  // Fas 3 låser upp efter att scorpionbossen har besegrats (sker tidigast runt t=240)
+  if (t > 240 && gs.scorpionBossDone) gs.phase = Math.max(gs.phase, 3);
 }
 
 // ── MAIN LOOP ─────────────────────────────────────────────────────────────────
@@ -3741,16 +3760,26 @@ function update() {
   }
 
   // ── Pre-boss rensningsfönster ────────────────────────────────────────────────
-  // Vid t > 88 s i ett vanligt spel slutar vi spawna nya fiender och väntar tills
-  // alla nuvarande har försvunnit innan snigelbossen kommer in från höger.
-  const tSecNow = (performance.now() - gs.startTime) / 1000;
-  const inPreBossWindow = !gs.bossTest && !gs.boss && !gs.bossDefeated &&
-                          !gs.snailBossDone && tSecNow > 88;
-  if (inPreBossWindow) {
+  // Snigeln dyker upp innan fas 2 (t > 88), scorpionen innan fas 3 (t > 238).
+  // Under fönstret slutar vi spawna nya fiender och väntar tills planen är fri.
+  // Använder effektiv tid (real minus pausedMs) så timern inte tickar under bossfight.
+  const tSecNow = (performance.now() - gs.startTime - gs.pausedMs) / 1000;
+  const inPreSnailWindow    = !gs.bossTest && !gs.boss && !gs.bossDefeated &&
+                              !gs.snailBossDone && tSecNow > 88;
+  const inPreScorpionWindow = !gs.bossTest && !gs.boss && !gs.bossDefeated &&
+                              gs.snailBossDone && !gs.scorpionBossDone && tSecNow > 238;
+  const inPreBossWindow = inPreSnailWindow || inPreScorpionWindow;
+
+  if (inPreSnailWindow) {
     gs.snailBossArmed = true;
-    // Spawna bossen när planen är fri från goblins/jättar/bats (minisniglar räknas inte)
+    // Spawna snigeln när planen är fri från goblins/jättar/bats (minisniglar räknas inte)
     const blockers = gs.enemies.filter(e => !e.dead && e.type !== 'mini-snail');
     if (blockers.length === 0) spawnSnailBoss();
+  } else if (inPreScorpionWindow) {
+    gs.scorpionBossArmed = true;
+    // Spawna scorpionen när planen är fri från vanliga fiender
+    const blockers = gs.enemies.filter(e => !e.dead && e.type !== 'mini-snail');
+    if (blockers.length === 0) spawnScorpionBoss();
   }
 
   // Gift spawn milestone (suppressed during a boss fight / boss test / pre-boss)
@@ -3781,12 +3810,18 @@ function update() {
         gs.state    = 'mainmenu';
         gs.bossTest = null;
       } else {
-        // Lås upp fas 2 → bakgrund + scroll återupptas via updateBackground
-        gs.snailBossDone = true;
-        gs.snailBossArmed = false;
+        // Lås upp nästa fas → bakgrund + scroll återupptas via updateBackground.
+        // Sätt rätt flagga baserat på vilken boss som just besegrades.
+        if (gs.lastBossKilled === 'scorpion') {
+          gs.scorpionBossDone  = true;
+          gs.scorpionBossArmed = false;
+        } else {
+          gs.snailBossDone  = true;
+          gs.snailBossArmed = false;
+        }
         // Nollställ alla spawn-cooldowns så det inte sprutas fiender/bats direkt
-        gs.spawnTimer    = 0;
-        gs.lastBatFrame  = gs.frame;
+        gs.spawnTimer     = 0;
+        gs.lastBatFrame   = gs.frame;
         gs.lastGiantFrame = gs.frame;
       }
       gs.bossDefeated = false;
