@@ -634,6 +634,7 @@ function resetState() {
     icePowerEnd:    0,
     startTime:      performance.now(),
     pausedMs:       0,           // ackumuleras under bossfight så difficulty-timern (t) inte glider iväg
+    spawnRelaxT:    0,           // sekunder subtraherade från t i spawnRate-beräkning (mjukare fas 2)
     goParticles:    [],
     goFwInit:       false,
     isNewTop1:      false,
@@ -3701,7 +3702,9 @@ function updateDifficulty() {
   // Faster start (1.8), immediate ramp, sharper acceleration after 90s
   gs.worldSpeed = 1.8 + t * 0.014 + (t > 90 ? (t - 90) * 0.05 : 0);
   gs.worldSpeed = Math.min(gs.worldSpeed, 8);
-  gs.spawnRate  = Math.max(45, 160 - t * 1.2);
+  // spawnRate kan mjukas via gs.spawnRelaxT (sätts t.ex. till 30s efter snigeln
+  // för en lugnare fas 2). worldSpeed påverkas inte.
+  gs.spawnRate  = Math.max(45, 160 - (t - gs.spawnRelaxT) * 1.2);
   // Fas 2 låser upp efter att snigelbossen har besegrats (sker tidigast runt t=90)
   if (t > 90 && gs.snailBossDone)     gs.phase = Math.max(gs.phase, 2);
   // Fas 3 låser upp efter att scorpionbossen har besegrats (sker tidigast runt t=240)
@@ -3818,6 +3821,10 @@ function update() {
         } else {
           gs.snailBossDone  = true;
           gs.snailBossArmed = false;
+          // Mjuka upp fas 2: spawnRate beter sig som om difficulty-timern hade
+          // 30 färre sekunder. Effekten klingar av runt effektiv t ≈ 126 när
+          // formeln annars hittar samma 45-frames-floor.
+          gs.spawnRelaxT = 30;
         }
         // Nollställ alla spawn-cooldowns så det inte sprutas fiender/bats direkt
         gs.spawnTimer     = 0;
